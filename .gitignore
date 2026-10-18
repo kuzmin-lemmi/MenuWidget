@@ -16,6 +16,9 @@ templates-private/
 bin/
 obj/
 artifacts/
+.tools/
+.dotnet/
+.nuget/
 .vs/
 *.user
 *.suo

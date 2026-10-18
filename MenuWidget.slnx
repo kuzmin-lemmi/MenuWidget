@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/experiments/">
+    <Project Path="experiments/MenuWidget.Probes/MenuWidget.Probes.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/MenuWidget.Core/MenuWidget.Core.csproj" />
+    <Project Path="src/MenuWidget.Prototype/MenuWidget.Prototype.csproj" />
+  </Folder>
+</Solution>

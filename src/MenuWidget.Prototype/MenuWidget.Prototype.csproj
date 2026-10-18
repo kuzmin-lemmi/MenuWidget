@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>MenuWidget.Prototype</AssemblyName>
+    <Version>0.0.1</Version>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../MenuWidget.Core/MenuWidget.Core.csproj" /></ItemGroup>
+</Project>
