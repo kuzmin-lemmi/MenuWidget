@@ -1,0 +1,32 @@
+# Local user data and menu files
+*.xlsx
+*.xls
+*.lnk
+settings.json
+настройки.json
+user-data/
+outputs/
+templates-private/
+*.log
+*.tmp
+~$*
+.~lock.*
+
+# Build and IDE files
+bin/
+obj/
+artifacts/
+.vs/
+*.user
+*.suo
+TestResults/
+
+# Credentials and signing material
+.env
+.env.*
+*.pfx
+*.p12
+*.key
+
+# Explicitly reviewed synthetic workbook fixtures may be committed here
+!tests/fixtures/synthetic/**/*.xlsx
