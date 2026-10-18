@@ -19,6 +19,15 @@ internal static class ServicesChecks
             var read = new LocalData(data.Root).ReadSettings();
             Require(read.FirstWeekMonday == new DateOnly(2026, 10, 12) && read.ReminderTime == new TimeOnly(19, 45) && read.Topmost);
         });
+        check("settings/corrupt-file-recovers", () =>
+        {
+            var root = Path.Combine(temp, "corrupt-profile"); Directory.CreateDirectory(root);
+            File.WriteAllText(Path.Combine(root, "settings.json"), "{\"SchemaVersion\": 1, \"FirstWeek");
+            File.WriteAllText(Path.Combine(root, "window.json"), "not json");
+            var local = new LocalData(root); var read = local.ReadSettings();
+            Require(read.FirstWeekMonday is null && local.RecoveredSettingsBackup is { } backup && File.Exists(backup) && !File.Exists(Path.Combine(root, "settings.json")));
+            Require(local.ReadPlacement() is null && new LocalData(root).ReadSettings() == new UserSettings());
+        });
         check("templates/import-independent-copies", () =>
         {
             store.ReplaceAsync(set, default).GetAwaiter().GetResult();
@@ -52,6 +61,15 @@ internal static class ServicesChecks
             var old = Path.Combine(temp, "exports", "2026-10-19", "2026-10-19-sm.xlsx"); var hash = SHA256.HashData(File.ReadAllBytes(old));
             var result = export.ExportAsync(new(new(2026, 10, 19), MenuSetId.First, Path.Combine(temp, "exports")), default).GetAwaiter().GetResult();
             Require(result.Directory != Path.GetDirectoryName(old) && hash.SequenceEqual(SHA256.HashData(File.ReadAllBytes(old))));
+        });
+        check("widget/finds-newest-complete-week", () =>
+        {
+            var output = Path.Combine(temp, "exports"); var rows = new CycleService().Preview(new(2026, 10, 19), MenuSetId.First);
+            var newest = Directory.GetDirectories(output, "2026-10-19*").OrderByDescending(Directory.GetCreationTimeUtc).First();
+            Require(ExportService.FindLatest(output, new(2026, 10, 19), rows)?.Directory == newest);
+            var incomplete = Path.Combine(output, "2026-10-19_235959_ffffff"); Directory.CreateDirectory(incomplete);
+            Require(ExportService.FindLatest(output, new(2026, 10, 19), rows)?.Directory == newest);
+            Require(ExportService.FindLatest(output, new(2026, 10, 26), rows) is null && ExportService.FindLatest(Path.Combine(temp, "missing"), new(2026, 10, 19), rows) is null);
         });
         check("export/fifth-file-failure-leaves-no-partial-set", () =>
         {

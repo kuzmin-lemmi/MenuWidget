@@ -15,6 +15,7 @@ public partial class App : Application
     private async void OnStartup(object sender, StartupEventArgs e)
     {
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        DispatcherUnhandledException += OnUnhandled;
         try
         {
             var demo = e.Args.Any(arg => arg is "--capture" or "--layout-checks" or "--drag-probe");
@@ -43,6 +44,8 @@ public partial class App : Application
             }
             var silent = e.Args.Contains("--check-reminder") || e.Args.Contains("--background");
             var data = new LocalData(); var settings = data.ReadSettings();
+            if (data.RecoveredSettingsBackup is { } backup)
+                MessageBox.Show("Файл настроек был повреждён, поэтому настройки сброшены. Шаблоны меню и готовые файлы не затронуты.\nОткройте «Настройки» и укажите начало цикла заново.\nКопия старого файла: " + backup, "MenuWidget");
             if (e.Args.Contains("--background") && !settings.AutoStart) { Shutdown(); return; }
             if (e.Args.Contains("--check-reminder") && !ReminderRules.IsDue(DateTimeOffset.Now, new(settings.ReminderEnabled, settings.ReminderTime, TimeSpan.FromMinutes(30)), data.ReadReminderState())) { Shutdown(); return; }
             Runtime = new DesktopRuntime(this, e.Args.Contains("--check-reminder"));
@@ -54,7 +57,9 @@ public partial class App : Application
             {
                 if (!silent) MessageBox.Show("Не удалось восстановить автозапуск или расписание: " + integrationError.Message + "\nПроверьте настройки программы.", "MenuWidget");
             }
-            if (!silent) Runtime.ShowMain();
+            // The widget is the everyday face of the program; the full window opens on first run or when the widget is hidden.
+            if (!e.Args.Contains("--check-reminder")) Runtime.ShowWidget();
+            if (!silent && (settings.FirstWeekMonday is null || !Runtime.WidgetVisible)) Runtime.ShowMain();
             Runtime.CheckReminders();
         }
         catch (Exception ex)
@@ -78,13 +83,32 @@ public partial class App : Application
             foreach (var scene in new[] { "welcome", "empty", "partial", "ready", "error", "settings", "updates" })
             {
                 window.SetScene(scene); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout();
-                var content = (FrameworkElement)window.Content;
-                var bitmap = new RenderTargetBitmap((int)Math.Ceiling(content.ActualWidth), (int)Math.Ceiling(content.ActualHeight), 96, 96, PixelFormats.Pbgra32); bitmap.Render(content);
-                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                using var stream = File.Create(Path.Combine(output, scene + ".png")); encoder.Save(stream);
+                Capture((FrameworkElement)window.Content, window.ActualWidth, window.ActualHeight, Path.Combine(output, scene + ".png"));
+            }
+            // Synthetic widget states: a weekday with prepared files and a weekend before preparation.
+            foreach (var (scene, today, prepared) in new[] { ("widget", new DateOnly(2026, 10, 22), true), ("widget-weekend", new DateOnly(2026, 10, 24), false) })
+            {
+                var widget = new WidgetWindow(() => new(today, new DateOnly(2026, 10, 12), "Папка готовых меню", false, prepared), () => { }, () => { }, null);
+                widget.Show(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); widget.UpdateLayout();
+                Capture((FrameworkElement)widget.Content, widget.ActualWidth, widget.ActualHeight, Path.Combine(output, scene + ".png"));
+                widget.Close();
             }
             Shutdown();
         }
+    }
+    private static void Capture(FrameworkElement content, double width, double height, string path)
+    {
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(width), (int)Math.Ceiling(height), 96, 96, PixelFormats.Pbgra32); bitmap.Render(content);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(path); encoder.Save(stream);
+    }
+    // Last line of defence: a UI handler error must not silently close the widget with the user's work.
+    private void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        e.Handled = true;
+        try { var root = new LocalData().Root; Directory.CreateDirectory(root); File.AppendAllText(Path.Combine(root, "diagnostics.log"), $"{DateTimeOffset.Now:O} {e.Exception}\n"); }
+        catch (Exception logError) when (logError is IOException or UnauthorizedAccessException) { }
+        MessageBox.Show("Не удалось выполнить действие: " + e.Exception.Message + "\nПрограмма продолжит работу; сохранённые шаблоны не изменены.", "MenuWidget");
     }
     protected override void OnExit(ExitEventArgs e)
     {

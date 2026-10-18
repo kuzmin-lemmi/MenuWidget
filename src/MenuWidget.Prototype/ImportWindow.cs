@@ -44,13 +44,16 @@ internal sealed class ImportWindow : Window
         save.Click += (_, _) =>
         {
             try { foreach (var item in this.items) _ = editor.ReadDate(item.Path, new(item.Sheet, item.Address)); DialogResult = true; }
-            catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException) { error.Text = ex.Message; }
+            catch (Exception ex) when (IsUserFileError(ex)) { error.Text = ex.Message; }
         };
         buttons.Children.Add(cancel); buttons.Children.Add(save); bottom.Children.Add(buttons);
         DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom);
         root.Children.Add(new ScrollViewer { Content = rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Content = root;
         Rebuild();
     }
+
+    // InvalidDataException is not an IOException: without it a missing date or a half-typed address closed the program.
+    internal static bool IsUserFileError(Exception ex) => ex is IOException or InvalidDataException or UnauthorizedAccessException or InvalidOperationException or ArgumentException;
 
     private void Rebuild()
     {
@@ -76,7 +79,7 @@ internal sealed class ImportWindow : Window
             {
                 item.Sheet = (string?)sheet.SelectedItem ?? item.Sheet; item.Address = address.Text.Trim().ToUpperInvariant();
                 try { date.Text = "Сейчас: " + editor.ReadDate(item.Path, new(item.Sheet, item.Address)).ToString("dd.MM.yyyy", CultureInfo.InvariantCulture); date.Foreground = (Brush)Application.Current.FindResource("Muted"); }
-                catch (Exception ex) when (ex is IOException or InvalidOperationException or ArgumentException) { date.Text = ex.Message; date.Foreground = Brushes.Firebrick; }
+                catch (Exception ex) when (IsUserFileError(ex)) { date.Text = ex.Message; date.Foreground = Brushes.Firebrick; }
             }
             sheet.SelectionChanged += (_, _) => Validate(); address.TextChanged += (_, _) => Validate();
             fields.Children.Add(sheet); fields.Children.Add(address); fields.Children.Add(date); body.Children.Add(fields); Validate();

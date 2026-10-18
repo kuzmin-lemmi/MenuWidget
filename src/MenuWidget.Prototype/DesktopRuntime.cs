@@ -20,6 +20,7 @@ internal sealed class DesktopRuntime : IDisposable
     private readonly DispatcherTimer placementTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
     private readonly DispatcherTimer idleExit = new() { Interval = TimeSpan.FromMinutes(2) };
     private MainWindow? window;
+    private WidgetWindow? widget;
     private Window? reminderWindow;
     private bool transient, restoring, disposed;
     public bool Exiting { get; private set; }
@@ -29,13 +30,14 @@ internal sealed class DesktopRuntime : IDisposable
         this.app = app; this.transient = transient;
         tray = new Forms.NotifyIcon { Icon = System.Drawing.SystemIcons.Information, Text = "MenuWidget · меню для сайта", Visible = true };
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Открыть меню", null, (_, _) => Dispatch(ShowMain));
+        menu.Items.Add("Показать виджет", null, (_, _) => Dispatch(() => ShowWidget(force: true)));
+        menu.Items.Add("Открыть программу", null, (_, _) => Dispatch(ShowMain));
         menu.Items.Add("Напомнить через 30 минут", null, (_, _) => Dispatch(async () => await SnoozeAsync()));
         menu.Items.Add("Выйти", null, (_, _) => Dispatch(() => RequestExit()));
         tray.ContextMenuStrip = menu;
         tray.DoubleClick += (_, _) => Dispatch(ShowMain);
         tray.BalloonTipClicked += (_, _) => Dispatch(OpenReminder);
-        clock.Tick += (_, _) => { window?.RefreshToday(); CheckReminders(); }; clock.Start();
+        clock.Tick += (_, _) => { window?.RefreshToday(); widget?.Refresh(); CheckReminders(); }; clock.Start();
         placementTimer.Tick += (_, _) => { placementTimer.Stop(); SavePlacement(); };
         idleExit.Tick += (_, _) => { if (this.transient && window?.IsVisible != true && reminderWindow is null) RequestExit(); };
         if (transient) idleExit.Start();
@@ -56,6 +58,32 @@ internal sealed class DesktopRuntime : IDisposable
         }
         if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
         window.Show(); KeepVisible(); window.Activate();
+    }
+    public void ShowWidget(bool force = false)
+    {
+        if (force) { transient = false; idleExit.Stop(); }
+        else if (data.ReadWidget()?.Hidden == true) return;
+        if (widget is null)
+        {
+            widget = new WidgetWindow(WidgetState, ShowMain, HideWidget, data);
+            widget.Closing += (_, e) => { if (!Exiting) { e.Cancel = true; HideWidget(); } };
+        }
+        widget.Refresh(); widget.Show();
+        if (force) widget.SavePlacement(hidden: false);
+    }
+    public bool WidgetVisible => widget?.IsVisible == true;
+    public void RefreshWidget() => widget?.Refresh();
+    private void HideWidget()
+    {
+        if (widget is null) return;
+        widget.SavePlacement(hidden: true); widget.Hide();
+    }
+    private WidgetSnapshot WidgetState()
+    {
+        UserSettings settings;
+        try { settings = data.ReadSettings(); }
+        catch (Exception ex) { Log(ex); settings = new(); }
+        return new(DateOnly.FromDateTime(DateTime.Now), settings.FirstWeekMonday, settings.OutputDirectory, settings.Topmost);
     }
     public bool RequestExit(bool forUpdate = false)
     {

@@ -33,6 +33,8 @@ try
     Check("calendar/weekday", () => Equal(new DateOnly(2026, 10, 19), cycle.SuggestedMonday(new(2026, 10, 21))));
     Check("calendar/year-boundary", () => Equal("2027-01-01-sm.xlsx", cycle.Preview(new(2026, 12, 28), MenuSetId.First)[4].FileName));
     Check("calendar/leap-day", () => Equal(new DateOnly(2028, 2, 29), cycle.Preview(new(2028, 2, 28), MenuSetId.Second)[1].Date));
+    Check("widget/weekday-week-and-menu", () => Equal(new WeekInfo(new(2026, 10, 19), MenuSetId.Second, 2, 9), cycle.Describe(new(2026, 10, 22), settings)));
+    Check("widget/weekend-next-week", () => Equal(new WeekInfo(new(2026, 10, 26), MenuSetId.First, 1, null), cycle.Describe(new(2026, 10, 24), settings)));
     Check("calendar/reject-non-monday", () => Throws<ArgumentException>(() => cycle.Preview(new(2026, 10, 20), MenuSetId.First)));
 
     foreach (var date1904 in new[] { false, true })

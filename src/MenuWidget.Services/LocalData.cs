@@ -15,16 +15,29 @@ public record UserSettings
 }
 
 public record WindowPlacement(double Left, double Top, double Width, double Height);
+public record WidgetState(double Left, double Top, bool Hidden);
 
 public sealed class LocalData
 {
     public string Root { get; }
     public LocalData(string? root = null) => Root = Path.GetFullPath(root ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MenuWidget"));
+    // Path of the damaged settings file set aside by the last ReadSettings, so the UI can tell the user.
+    public string? RecoveredSettingsBackup { get; private set; }
     public UserSettings ReadSettings()
     {
         var path = Path.Combine(Root, "settings.json");
         if (!File.Exists(path)) return new();
-        var result = JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(path)) ?? throw new InvalidDataException("Настройки повреждены.");
+        UserSettings? result;
+        try { result = JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(path)); }
+        catch (JsonException) { result = null; }
+        if (result is null)
+        {
+            // A truncated file (power loss, disk error) must not lock the user out: keep a copy and start with defaults.
+            var backup = Path.Combine(Root, $"settings.broken-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..6]}.json");
+            File.Move(path, backup);
+            RecoveredSettingsBackup = backup;
+            return new();
+        }
         if (result.SchemaVersion != 1) throw new InvalidDataException("Эта версия программы не поддерживает сохранённые настройки.");
         return result;
     }
@@ -33,10 +46,15 @@ public sealed class LocalData
     public void SaveReminderState(ReminderState state) => AtomicJson(Path.Combine(Root, "reminder-state.json"), state);
     public WindowPlacement? ReadPlacement() => ReadOptional<WindowPlacement>("window.json");
     public void SavePlacement(WindowPlacement placement) => AtomicJson(Path.Combine(Root, "window.json"), placement);
+    public WidgetState? ReadWidget() => ReadOptional<WidgetState>("widget.json");
+    public void SaveWidget(WidgetState state) => AtomicJson(Path.Combine(Root, "widget.json"), state);
     private T? ReadOptional<T>(string file) where T : class
     {
         var path = Path.Combine(Root, file);
-        return File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path)) : null;
+        if (!File.Exists(path)) return null;
+        // Optional state (window position, reminder marks) is safe to forget when damaged.
+        try { return JsonSerializer.Deserialize<T>(File.ReadAllText(path)); }
+        catch (JsonException) { return null; }
     }
 
     internal static void AtomicJson<T>(string path, T value)
@@ -110,6 +128,20 @@ public sealed class TemplateStore(LocalData data, XlsxDateEditor editor) : ITemp
 
 public sealed class ExportService(ITemplateStore templates, XlsxDateEditor editor, ICycleService cycle) : IExportService
 {
+    // Newest complete export for the week: "yyyy-MM-dd" or a repeat "yyyy-MM-dd_HHmmss_xxxxxx" with all five files.
+    public static ExportResult? FindLatest(string outputDirectory, DateOnly monday, IReadOnlyList<ExportRow> rows)
+    {
+        if (string.IsNullOrWhiteSpace(outputDirectory)) return null;
+        var output = Path.GetFullPath(outputDirectory);
+        if (!Directory.Exists(output)) return null;
+        var name = monday.ToString("yyyy-MM-dd");
+        return new DirectoryInfo(output).EnumerateDirectories(name + "*")
+            .Where(d => d.Name == name || d.Name.StartsWith(name + "_", StringComparison.Ordinal))
+            .OrderByDescending(d => d.CreationTimeUtc).ThenByDescending(d => d.Name, StringComparer.Ordinal)
+            .Select(d => new ExportResult(d.FullName, rows.Select(r => Path.Combine(d.FullName, r.FileName)).ToArray()))
+            .FirstOrDefault(r => r.Files.All(File.Exists));
+    }
+
     public async Task<ExportResult> ExportAsync(ExportRequest request, CancellationToken cancellationToken)
     {
         var rows = cycle.Preview(request.Monday, request.SetId);

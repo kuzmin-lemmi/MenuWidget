@@ -27,6 +27,15 @@ public sealed class CycleService : ICycleService
         }).ToArray();
     }
 
+    // What the widget shows: on weekdays the current week and today's menu, on weekends the coming week.
+    public WeekInfo Describe(DateOnly today, CycleSettings settings)
+    {
+        var monday = SuggestedMonday(today);
+        var set = GetSet(monday, settings);
+        var weekend = today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        return new(monday, set, set == MenuSetId.First ? 1 : 2, weekend ? null : Preview(monday, set).Single(r => r.Date == today).MenuNumber);
+    }
+
     private static void RequireMonday(DateOnly date)
     {
         if (date.DayOfWeek != DayOfWeek.Monday) throw new ArgumentException("Выберите понедельник.");

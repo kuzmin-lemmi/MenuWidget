@@ -39,7 +39,13 @@ public partial class MainWindow : Window
         data = new(demo ? Path.Combine(Path.GetTempPath(), "MenuWidget-Demo-" + Guid.NewGuid().ToString("N")) : null);
         store = new(data, editor);
         settings = demo ? new() { OutputDirectory = "Папка готовых меню" } : data.ReadSettings();
-        if (!demo) for (var i = 0; i < 2; i++) saved[i] = store.ReadAsync((MenuSetId)i, default).GetAwaiter().GetResult();
+        // A damaged saved set must not stop the program from opening: show it as empty with an explanation.
+        if (!demo) for (var i = 0; i < 2; i++)
+        {
+            try { saved[i] = store.ReadAsync((MenuSetId)i, default).GetAwaiter().GetResult(); }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException || ImportWindow.IsUserFileError(ex))
+            { message = $"Сохранённый комплект {(i == 0 ? "1–5" : "6–10")} не прочитан: {ex.Message} Добавьте его файлы заново."; messageIsError = true; }
+        }
         InitializeComponent();
         Title = demo ? "MenuWidget · демонстрация" : "Меню для сайта";
         VersionText.Text = "MenuWidget · " + typeof(App).Assembly.GetName().Version!.ToString(3);
@@ -173,6 +179,7 @@ public partial class MainWindow : Window
             SetBusy(true, "Подготавливаю пять меню…");
             var result = await new ExportService(store, editor, cycle).ExportAsync(request, default);
             message = "Готово: пять меню сохранены в отдельную папку."; messageIsError = false;
+            ((App)Application.Current).Runtime?.RefreshWidget();
             try { Process.Start(new ProcessStartInfo("explorer.exe", '"' + result.Directory + '"') { UseShellExecute = true }); }
             catch { message += " Папка: " + result.Directory; }
         }
@@ -191,6 +198,7 @@ public partial class MainWindow : Window
             settings = updated;
             SettingsFeedback.Text = IsDemo ? "Применено только в демонстрации." : "Настройки сохранены. После закрытия программы они останутся.";
             SelectCycleSet(); RefreshPreview();
+            if (!IsDemo) ((App)Application.Current).Runtime?.RefreshWidget();
         }
         catch (Exception ex) { SettingsFeedback.Text = "Не удалось сохранить настройки: " + ex.Message; }
     }

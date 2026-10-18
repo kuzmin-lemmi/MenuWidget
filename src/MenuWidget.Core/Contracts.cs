@@ -7,6 +7,7 @@ public record MenuTemplate(DayOfWeek Day, string LocalPath, string OriginalName,
 public record MenuSet(MenuSetId Id, IReadOnlyList<MenuTemplate> Templates);
 public record ExportRow(DayOfWeek Day, int MenuNumber, DateOnly Date, string FileName);
 public record ExportRequest(DateOnly Monday, MenuSetId SetId, string OutputDirectory);
+public record WeekInfo(DateOnly Monday, MenuSetId Set, int WeekNumber, int? TodayMenuNumber);
 public record ExportResult(string Directory, IReadOnlyList<string> Files);
 public record ReminderSettings(bool Enabled, TimeOnly SundayTime, TimeSpan SnoozeDelay);
 public record ReminderState(DateOnly? LastSunday, DateTimeOffset? SnoozedUntil);
