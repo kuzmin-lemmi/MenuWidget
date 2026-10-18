@@ -1,4 +1,4 @@
-param([string]$Installer, [string]$MenuProfile, [string]$ExpectedVersion="0.3.0", [switch]$ResumeAfterUpgrade)
+param([string]$Installer, [string]$MenuProfile, [string]$ExpectedVersion="0.3.1", [switch]$ResumeAfterUpgrade)
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent $PSScriptRoot
 $acceptance=Join-Path $repoRoot 'artifacts\acceptance-installer'

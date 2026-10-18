@@ -21,7 +21,7 @@ https://github.com/kuzmin-lemmi/MenuWidget
 
 В `.github/workflows/build.yml` выполняются сборка решения, 44 синтетические проверки и создание автономной рабочей сборки Windows x64. `.github/workflows/release.yml` по тегу `vX.Y.Z` собирает MSI и создаёт **черновик** GitHub Release. После ручной приёмки владелец публикует его как стабильный релиз. Черновики и prerelease не предлагаются клиентам.
 
-Локальная сборка: `./scripts/Build-Release.ps1 -Version 0.3.0`. В `artifacts/release` появляются `MenuWidget-Setup-x64.msi`, `update-manifest.json`, `SHA256SUMS.txt`. Используются WiX 4.0.6, пользовательская установка в `%LocalAppData%\Programs\MenuWidget` и отдельный каталог данных `%LocalAppData%\MenuWidget`. Установщик пока не подписан цифровой подписью.
+Локальная сборка: `./scripts/Build-Release.ps1 -Version 0.3.1`. В `artifacts/release` появляются `MenuWidget-Setup-x64.msi`, `update-manifest.json`, `SHA256SUMS.txt`. Используются WiX 4.0.6, пользовательская установка в `%LocalAppData%\Programs\MenuWidget` и отдельный каталог данных `%LocalAppData%\MenuWidget`. Установщик пока не подписан цифровой подписью.
 
 Для нового выпуска увеличить числовую версию (три компонента, MSI: первые два до 255, третий до 65535), создать и отправить тег. Все три указанных файла нужно публиковать в одном релизе. Нельзя менять бинарный файл уже опубликованной версии. Проверить установку и обновление по [ручным сценариям](DESKTOP_FEATURES.md), затем опубликовать черновик. При ручном выпуске: `gh release create v0.2.2 artifacts/release/MenuWidget-Setup-x64.msi artifacts/release/update-manifest.json artifacts/release/SHA256SUMS.txt --draft --generate-notes`.
 
