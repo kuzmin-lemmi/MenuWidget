@@ -16,11 +16,11 @@ jobs:
           global-json-file: global.json
       - name: Build and run synthetic checks
         shell: pwsh
-        run: ./scripts/Build.ps1 -PublishPrototype
-      - name: Upload interface prototype (not a release)
+        run: ./scripts/Build.ps1 -PublishApp
+      - name: Upload working test build (not a release)
         uses: actions/upload-artifact@v4
         with:
-          name: MenuWidget-interface-prototype-win-x64
-          path: artifacts/prototype/
+          name: MenuWidget-test-win-x64
+          path: artifacts/app/
           if-no-files-found: error
           retention-days: 14

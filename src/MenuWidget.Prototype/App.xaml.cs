@@ -12,9 +12,18 @@ public partial class App : Application
     {
         try
         {
-            var window = new MainWindow();
+            var demo = e.Args.Any(arg => arg is "--capture" or "--layout-checks" or "--drag-probe");
+            var window = new MainWindow(demo);
             MainWindow = window;
+            if (e.Args.Contains("--health-check")) { Shutdown(); return; }
             window.Show();
+            if (e.Args.Length == 2 && e.Args[0] == "--drag-probe")
+                window.EnableDragProbe(Path.GetFullPath(e.Args[1]));
+            if (e.Args.Length == 2 && e.Args[0] == "--layout-checks")
+            {
+                await LayoutProbe.RunAsync(window, Path.GetFullPath(e.Args[1]));
+                Shutdown(); return;
+            }
             if (e.Args.Length == 2 && e.Args[0] == "--capture")
             {
                 var output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);

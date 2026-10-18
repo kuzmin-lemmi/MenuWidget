@@ -5,6 +5,13 @@ using System.Xml.Linq;
 using MenuWidget.Core;
 using MenuWidget.Probes;
 
+if (args.Length == 2 && args[0] == "--write-fixtures")
+{
+    Directory.CreateDirectory(args[1]);
+    for (var i = 0; i < 5; i++) Fixture(Path.Combine(args[1], $"synthetic-menu-{i + 1}.xlsx"), false);
+    Console.WriteLine("Wrote five synthetic OOXML files."); return 0;
+}
+
 var temp = Path.Combine(Path.GetTempPath(), "MenuWidget-Probes-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(temp);
 var passed = 0;
@@ -74,6 +81,7 @@ try
         Assert(!File.Exists(dest), "Failed export left a file");
     });
     Check("xlsx/reject-missing-cell", () => Throws<InvalidDataException>(() => XlsxDatePatch.WriteCopy(sourceForErrors, Path.Combine(temp, "missing.xlsx"), new("Меню", "Z99"), new(2026, 10, 19))));
+    ServicesChecks.Run(temp, Check, path => Fixture(path, false));
     Console.WriteLine($"RESULT: {passed} passed, {failed} failed. All fixtures synthetic; no school files read.");
     return failed == 0 ? 0 : 1;
 }

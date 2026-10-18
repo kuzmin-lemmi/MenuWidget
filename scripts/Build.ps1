@@ -1,4 +1,4 @@
-param([string]$DotnetPath, [switch]$Capture, [switch]$PublishPrototype)
+param([string]$DotnetPath, [switch]$Capture, [Alias('PublishPrototype')][switch]$PublishApp)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
@@ -20,8 +20,8 @@ try {
         & $DotnetPath run --project src/MenuWidget.Prototype -c Release --no-build --no-restore -- --capture docs/design
         if ($LASTEXITCODE -ne 0) { throw 'UI capture failed.' }
     }
-    if ($PublishPrototype) {
-        & $DotnetPath publish src/MenuWidget.Prototype -c Release -r win-x64 --self-contained true -o artifacts/prototype
-        if ($LASTEXITCODE -ne 0) { throw 'Prototype publish failed.' }
+    if ($PublishApp) {
+        & $DotnetPath publish src/MenuWidget.Prototype -c Release -r win-x64 --self-contained true -o artifacts/app
+        if ($LASTEXITCODE -ne 0) { throw 'App publish failed.' }
     }
 } finally { Pop-Location }
