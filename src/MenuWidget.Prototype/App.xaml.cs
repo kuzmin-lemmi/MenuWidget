@@ -85,10 +85,10 @@ public partial class App : Application
                 window.SetScene(scene); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout();
                 Capture((FrameworkElement)window.Content, window.ActualWidth, window.ActualHeight, Path.Combine(output, scene + ".png"));
             }
-            // Synthetic widget states: a weekday with prepared files and a weekend before preparation.
-            foreach (var (scene, today, prepared) in new[] { ("widget", new DateOnly(2026, 10, 22), true), ("widget-weekend", new DateOnly(2026, 10, 24), false) })
+            // Synthetic widget states: a prepared weekday in both themes and a Sunday that still needs preparation.
+            foreach (var (scene, today, prepared, theme) in new[] { ("widget", new DateOnly(2026, 10, 22), true, WidgetLook.Light), ("widget-dark", new DateOnly(2026, 10, 22), true, WidgetLook.Dark), ("widget-weekend", new DateOnly(2026, 10, 25), false, WidgetLook.Light) })
             {
-                var widget = new WidgetWindow(() => new(today, new DateOnly(2026, 10, 12), "Папка готовых меню", false, prepared), () => { }, () => { }, null);
+                var widget = new WidgetWindow(() => new(today, new DateOnly(2026, 10, 12), "Папка готовых меню", false, prepared, Theme: theme), () => { }, () => { }, null);
                 widget.Show(); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); widget.UpdateLayout();
                 Capture((FrameworkElement)widget.Content, widget.ActualWidth, widget.ActualHeight, Path.Combine(output, scene + ".png"));
                 widget.Close();

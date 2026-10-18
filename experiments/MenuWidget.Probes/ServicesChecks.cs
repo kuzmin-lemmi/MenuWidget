@@ -48,6 +48,20 @@ internal static class ServicesChecks
             store.ReplaceAsync(set with { Id = MenuSetId.Second }, default).GetAwaiter().GetResult();
             Require(store.ReadAsync(MenuSetId.First, default).Result!.Templates[0].LocalPath != store.ReadAsync(MenuSetId.Second, default).Result!.Templates[0].LocalPath);
         });
+        check("templates/prune-old-generations", () =>
+        {
+            for (var i = 0; i < 4; i++) store.ReplaceAsync(set, default).GetAwaiter().GetResult();
+            var root = Path.Combine(data.Root, "templates", "1-5");
+            var active = store.ReadAsync(MenuSetId.First, default).GetAwaiter().GetResult()!;
+            Require(Directory.GetDirectories(root).Length == 1 + TemplateStore.KeptGenerations && active.Templates.All(t => File.Exists(t.LocalPath)));
+        });
+        check("updates/cleanup-old-downloads", () =>
+        {
+            var local = new LocalData(Path.Combine(temp, "updates-profile")); var updates = Path.Combine(local.Root, "updates"); Directory.CreateDirectory(updates);
+            string Make(string name, int daysOld) { var path = Path.Combine(updates, name); File.WriteAllText(path, "x"); File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-daysOld)); return path; }
+            var oldMsi = Make("MenuWidget-0.2.2-a.msi", 3); var oldRunner = Make("runner-b.exe", 3); var fresh = Make("MenuWidget-0.3.0-c.msi", 0); var other = Make("notes.txt", 3);
+            Require(GitHubUpdateService.CleanupDownloads(local, DateTime.UtcNow.AddDays(-1)) == 2 && !File.Exists(oldMsi) && !File.Exists(oldRunner) && File.Exists(fresh) && File.Exists(other));
+        });
         var export = new ExportService(store, editor, new CycleService());
         check("export/five-correct-dates-and-names", () =>
         {

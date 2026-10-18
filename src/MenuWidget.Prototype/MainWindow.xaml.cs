@@ -54,6 +54,7 @@ public partial class MainWindow : Window
         ReminderTime.Text = settings.ReminderTime.ToString("HH:mm"); OutputPath.Text = settings.OutputDirectory;
         ReminderEnabled.IsChecked = settings.ReminderEnabled; AutoStartCheck.IsChecked = settings.AutoStart;
         TopmostCheck.IsChecked = settings.Topmost; Topmost = settings.Topmost;
+        ShowWidgetSettings();
         loaded = true;
         if (settings.FirstWeekMonday is { } anchor && cycle.GetSet(DateOnly.FromDateTime(WeekPicker.SelectedDate!.Value), new(anchor)) == MenuSetId.Second) SecondSet.IsChecked = true;
         ScenePicker.Visibility = demo ? Visibility.Visible : Visibility.Collapsed;
@@ -179,7 +180,7 @@ public partial class MainWindow : Window
             SetBusy(true, "Подготавливаю пять меню…");
             var result = await new ExportService(store, editor, cycle).ExportAsync(request, default);
             message = "Готово: пять меню сохранены в отдельную папку."; messageIsError = false;
-            ((App)Application.Current).Runtime?.RefreshWidget();
+            ((App)Application.Current).Runtime?.AcknowledgeReminder();
             try { Process.Start(new ProcessStartInfo("explorer.exe", '"' + result.Directory + '"') { UseShellExecute = true }); }
             catch { message += " Папка: " + result.Directory; }
         }
@@ -191,9 +192,11 @@ public partial class MainWindow : Window
         if (busy) return;
         if (AnchorPicker.SelectedDate is not { DayOfWeek: DayOfWeek.Monday } date) { SettingsFeedback.Text = "Укажите понедельник недели с меню 1–5."; return; }
         if (!TimeOnly.TryParseExact(ReminderTime.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time)) { SettingsFeedback.Text = "Введите время в формате ЧЧ:ММ, например 18:00."; return; }
+        if (!IsDemo && OutputFolderProblem(OutputPath.Text) is { } problem) { SettingsFeedback.Text = problem; return; }
         try
         {
-            var updated = settings with { FirstWeekMonday = DateOnly.FromDateTime(date), ReminderTime = time, ReminderEnabled = ReminderEnabled.IsChecked == true, AutoStart = AutoStartCheck.IsChecked == true, Topmost = TopmostCheck.IsChecked == true, OutputDirectory = OutputPath.Text };
+            var updated = settings with { FirstWeekMonday = DateOnly.FromDateTime(date), ReminderTime = time, ReminderEnabled = ReminderEnabled.IsChecked == true, AutoStart = AutoStartCheck.IsChecked == true, Topmost = TopmostCheck.IsChecked == true, OutputDirectory = OutputPath.Text,
+                WidgetTheme = SelectedTag(WidgetThemeBox, "system"), WidgetCorner = SelectedTag(WidgetCornerBox, "top-right"), WidgetOpacity = (int)Math.Round(WidgetOpacitySlider.Value), WidgetLocked = WidgetLockedCheck.IsChecked == true };
             if (!IsDemo) await ((App)Application.Current).Runtime!.ApplySettingsAsync(settings, updated);
             settings = updated;
             SettingsFeedback.Text = IsDemo ? "Применено только в демонстрации." : "Настройки сохранены. После закрытия программы они останутся.";
@@ -201,6 +204,27 @@ public partial class MainWindow : Window
             if (!IsDemo) ((App)Application.Current).Runtime?.RefreshWidget();
         }
         catch (Exception ex) { SettingsFeedback.Text = "Не удалось сохранить настройки: " + ex.Message; }
+    }
+    private void ShowWidgetSettings()
+    {
+        SelectTag(WidgetThemeBox, settings.WidgetTheme); SelectTag(WidgetCornerBox, settings.WidgetCorner);
+        WidgetOpacitySlider.Value = Math.Clamp(settings.WidgetOpacity, 80, 100); WidgetLockedCheck.IsChecked = settings.WidgetLocked;
+    }
+    private static void SelectTag(ComboBox box, string tag) => box.SelectedItem = box.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == tag) ?? box.Items[0];
+    private static string SelectedTag(ComboBox box, string fallback) => (box.SelectedItem as ComboBoxItem)?.Tag as string ?? fallback;
+    private void WidgetOpacity_Changed(object sender, RoutedPropertyChangedEventArgs<double> e) { if (WidgetOpacityText is not null) WidgetOpacityText.Text = $"Непрозрачность фона: {Math.Round(e.NewValue)}%"; }
+    // Checked on save so a bad folder is reported in settings, not later in the middle of preparing files.
+    private static string? OutputFolderProblem(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "Выберите папку для готовых меню.";
+        try
+        {
+            if (!Path.IsPathFullyQualified(path)) return "Выберите папку кнопкой «Выбрать папку».";
+            Directory.CreateDirectory(path);
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        { return "В эту папку нельзя сохранить меню: " + ex.Message + " Выберите другую."; }
     }
     private void SelectCycleSet()
     {
@@ -216,7 +240,13 @@ public partial class MainWindow : Window
     private void Set_Changed(object sender, RoutedEventArgs e) { if (loaded) { message = null; messageIsError = false; RefreshPreview(); } }
     private void Week_Changed(object? sender, SelectionChangedEventArgs e) { if (loaded) { message = null; SelectCycleSet(); RefreshPreview(); } }
     private void Scene_Changed(object sender, SelectionChangedEventArgs e) { if (loaded && ScenePicker.SelectedItem is ComboBoxItem item) SetScene((string)item.Tag); }
-    private void Settings_Click(object sender, RoutedEventArgs e) { if (!busy) ShowPanel("settings"); }
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        if (busy) return;
+        // Dragging the widget switches its position to "custom" on disk; show that instead of a stale choice.
+        if (!IsDemo) try { settings = settings with { WidgetCorner = data.ReadSettings().WidgetCorner }; ShowWidgetSettings(); } catch (Exception ex) when (ex is IOException or InvalidDataException) { }
+        ShowPanel("settings");
+    }
     private async void Updates_Click(object sender, RoutedEventArgs e) { if (!busy) { ShowPanel("updates"); await CheckUpdatesAsync(); } }
     private async void CheckAgain_Click(object sender, RoutedEventArgs e) => await CheckUpdatesAsync();
     private void CancelUpdate_Click(object sender, RoutedEventArgs e) => updateCancellation?.Cancel();

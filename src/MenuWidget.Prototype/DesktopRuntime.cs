@@ -23,12 +23,14 @@ internal sealed class DesktopRuntime : IDisposable
     private WidgetWindow? widget;
     private Window? reminderWindow;
     private bool transient, restoring, disposed;
+    private DateTimeOffset? reminderShownAt;
+    private static readonly TimeSpan ReminderRepeat = TimeSpan.FromMinutes(30);
     public bool Exiting { get; private set; }
 
     public DesktopRuntime(App app, bool transient)
     {
         this.app = app; this.transient = transient;
-        tray = new Forms.NotifyIcon { Icon = System.Drawing.SystemIcons.Information, Text = "MenuWidget · меню для сайта", Visible = true };
+        tray = new Forms.NotifyIcon { Icon = TrayIcon(), Text = "MenuWidget · меню для сайта", Visible = true };
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Показать виджет", null, (_, _) => Dispatch(() => ShowWidget(force: true)));
         menu.Items.Add("Открыть программу", null, (_, _) => Dispatch(ShowMain));
@@ -39,7 +41,7 @@ internal sealed class DesktopRuntime : IDisposable
         tray.BalloonTipClicked += (_, _) => Dispatch(OpenReminder);
         clock.Tick += (_, _) => { window?.RefreshToday(); widget?.Refresh(); CheckReminders(); }; clock.Start();
         placementTimer.Tick += (_, _) => { placementTimer.Stop(); SavePlacement(); };
-        idleExit.Tick += (_, _) => { if (this.transient && window?.IsVisible != true && reminderWindow is null) RequestExit(); };
+        idleExit.Tick += (_, _) => { if (this.transient && window?.IsVisible != true && reminderWindow is null && !ReminderPending) RequestExit(); };
         if (transient) idleExit.Start();
     }
 
@@ -65,7 +67,7 @@ internal sealed class DesktopRuntime : IDisposable
         else if (data.ReadWidget()?.Hidden == true) return;
         if (widget is null)
         {
-            widget = new WidgetWindow(WidgetState, ShowMain, HideWidget, data);
+            widget = new WidgetWindow(WidgetState, ShowMain, HideWidget, data, AcknowledgeReminder);
             widget.Closing += (_, e) => { if (!Exiting) { e.Cancel = true; HideWidget(); } };
         }
         widget.Refresh(); widget.Show();
@@ -83,11 +85,12 @@ internal sealed class DesktopRuntime : IDisposable
         UserSettings settings;
         try { settings = data.ReadSettings(); }
         catch (Exception ex) { Log(ex); settings = new(); }
-        return new(DateOnly.FromDateTime(DateTime.Now), settings.FirstWeekMonday, settings.OutputDirectory, settings.Topmost);
+        return new(DateOnly.FromDateTime(DateTime.Now), settings.FirstWeekMonday, settings.OutputDirectory, settings.Topmost,
+            Theme: settings.WidgetTheme, Opacity: settings.WidgetOpacity, Corner: settings.WidgetCorner, Locked: settings.WidgetLocked, ReminderPending: ReminderPending);
     }
     public bool RequestExit(bool forUpdate = false)
     {
-        if (window?.IsWorking == true && !forUpdate)
+        if ((window?.IsWorking == true || widget?.IsWorking == true) && !forUpdate)
         {
             ShowMain(); MessageBox.Show(window, "Сначала завершите работу с файлами или отмените загрузку обновления.", "MenuWidget"); return false;
         }
@@ -162,6 +165,8 @@ internal sealed class DesktopRuntime : IDisposable
     }
     public async Task RestoreIntegrationsAsync()
     {
+        try { GitHubUpdateService.CleanupDownloads(data, DateTime.UtcNow.AddDays(-1)); }
+        catch (Exception ex) { Log(ex); }
         var settings = data.ReadSettings();
         await windows.ApplyAsync(AsReminder(settings), default);
         windows.SetAutoStart(settings.AutoStart);
@@ -175,11 +180,25 @@ internal sealed class DesktopRuntime : IDisposable
         {
             var settings = data.ReadSettings(); var reminder = AsReminder(settings); var state = data.ReadReminderState();
             var now = DateTimeOffset.Now;
-            if (!ReminderRules.IsDue(now, reminder, state)) return;
-            data.SaveReminderState(ReminderRules.Acknowledge(now, reminder, state));
-            ShowNotification();
+            if (!ReminderRules.IsDue(now, reminder, state)) { reminderShownAt = null; return; }
+            // The reminder counts as seen only after the user reacts; until then it repeats every 30 minutes
+            // and keeps a scheduler-started copy of the program alive in the tray.
+            if (reminderShownAt is { } shown && now - shown < ReminderRepeat) return;
+            reminderShownAt = now;
+            ShowNotification(); widget?.Refresh();
         }
         catch (Exception ex) { Log(ex); }
+    }
+    public bool ReminderPending => reminderShownAt is not null;
+    public void AcknowledgeReminder()
+    {
+        try
+        {
+            var settings = data.ReadSettings(); var reminder = AsReminder(settings); var state = data.ReadReminderState(); var now = DateTimeOffset.Now;
+            if (ReminderRules.IsDue(now, reminder, state)) data.SaveReminderState(ReminderRules.Acknowledge(now, reminder, state));
+        }
+        catch (Exception ex) { Log(ex); }
+        reminderShownAt = null; widget?.Refresh();
     }
     public void TestNotification() => ShowNotification(test: true);
     private void ShowNotification(bool test = false)
@@ -192,6 +211,7 @@ internal sealed class DesktopRuntime : IDisposable
     }
     private void OpenReminder()
     {
+        if (ReminderPending) AcknowledgeReminder();
         if (reminderWindow is not null) { reminderWindow.Activate(); return; }
         var body = new System.Windows.Controls.StackPanel { Margin = new Thickness(22) };
         body.Children.Add(new System.Windows.Controls.TextBlock { Text = "Пора подготовить меню питания", FontSize = 21, TextWrapping = TextWrapping.Wrap });
@@ -212,9 +232,16 @@ internal sealed class DesktopRuntime : IDisposable
             if (!settings.ReminderEnabled) { MessageBox.Show("Сначала включите напоминания в настройках.", "MenuWidget"); return false; }
             var until = DateTimeOffset.UtcNow.AddMinutes(30);
             await windows.SnoozeAsync(until, default);
-            data.SaveReminderState(data.ReadReminderState() with { SnoozedUntil = until }); return true;
+            data.SaveReminderState(data.ReadReminderState() with { SnoozedUntil = until });
+            reminderShownAt = null; widget?.Refresh(); return true;
         }
         catch (Exception ex) { MessageBox.Show("Не удалось отложить напоминание: " + ex.Message, "MenuWidget"); return false; }
+    }
+    // Own green "М" icon instead of the generic Windows "i", which is easy to mistake for other apps.
+    private static System.Drawing.Icon TrayIcon()
+    {
+        using var stream = typeof(DesktopRuntime).Assembly.GetManifestResourceStream("MenuWidget.app.ico");
+        return stream is null ? System.Drawing.SystemIcons.Application : new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
     }
     private static ReminderSettings AsReminder(UserSettings settings) => new(settings.ReminderEnabled, settings.ReminderTime, TimeSpan.FromMinutes(30));
     private void Dispatch(Action action) { if (!disposed && !Exiting) app.Dispatcher.BeginInvoke(action); }

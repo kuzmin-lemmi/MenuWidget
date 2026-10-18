@@ -113,6 +113,21 @@ public sealed class GitHubUpdateService : IUpdateService
         return Task.CompletedTask;
     }
 
+    // Installers and updater copies are needed only during one update; remove ones older than a day.
+    public static int CleanupDownloads(LocalData data, DateTime olderThanUtc)
+    {
+        var directory = Path.Combine(data.Root, "updates");
+        if (!Directory.Exists(directory)) return 0;
+        var removed = 0;
+        foreach (var file in new DirectoryInfo(directory).EnumerateFiles().Where(f => (f.Name.StartsWith("MenuWidget-", StringComparison.Ordinal) && f.Extension == ".msi")
+            || (f.Name.StartsWith("runner-", StringComparison.Ordinal) && f.Extension == ".exe")))
+        {
+            if (file.LastWriteTimeUtc >= olderThanUtc) continue;
+            try { file.Delete(); removed++; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { } // Still running or locked: retry next start.
+        }
+        return removed;
+    }
     private static void ValidateManifest(UpdateManifest manifest, Version expected)
     {
         if (manifest.SchemaVersion != 1 || ParseVersion(manifest.Version) != expected || manifest.Architecture != "x64" || !manifest.AssetName.Equals("MenuWidget-Setup-x64.msi", StringComparison.Ordinal)

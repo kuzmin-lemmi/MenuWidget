@@ -11,6 +11,11 @@ public record UserSettings
     public TimeOnly ReminderTime { get; init; } = new(18, 0);
     public bool Topmost { get; init; }
     public bool AutoStart { get; init; }
+    // Widget look: "system" / "light" / "dark"; corner "top-right" … or "custom" for a dragged position.
+    public string WidgetTheme { get; init; } = "system";
+    public int WidgetOpacity { get; init; } = 100;
+    public string WidgetCorner { get; init; } = "top-right";
+    public bool WidgetLocked { get; init; }
     public string OutputDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Меню для сайта");
 }
 
@@ -73,6 +78,7 @@ public sealed class LocalData
 public sealed class TemplateStore(LocalData data, XlsxDateEditor editor) : ITemplateStore
 {
     private record Manifest(string Generation, string[] OriginalNames, DateCell[] DateCells);
+    public const int KeptGenerations = 2;
 
     public Task<MenuSet?> ReadAsync(MenuSetId id, CancellationToken cancellationToken) => Task.Run(() =>
     {
@@ -116,7 +122,13 @@ public sealed class TemplateStore(LocalData data, XlsxDateEditor editor) : ITemp
             committed = true;
         }
         finally { if (!committed && Directory.Exists(newRoot)) Directory.Delete(newRoot, recursive: true); }
-        // Keep prior generations for recovery. They are never exported over or edited.
+        // Keep the two previous generations for recovery; they are never exported over or edited. Older ones only take disk space.
+        foreach (var old in new DirectoryInfo(root).EnumerateDirectories().Where(d => d.Name != generation && Guid.TryParseExact(d.Name, "N", out _))
+            .OrderByDescending(d => d.CreationTimeUtc).Skip(KeptGenerations))
+        {
+            try { old.Delete(recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { } // A file may be open in Excel; retry next time.
+        }
     }, cancellationToken);
 
     private string SetRoot(MenuSetId id)

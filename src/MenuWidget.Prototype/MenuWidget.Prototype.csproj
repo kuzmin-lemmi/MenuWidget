@@ -7,7 +7,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>MenuWidget</AssemblyName>
     <Version>0.3.0</Version>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup><EmbeddedResource Include="app.ico" LogicalName="MenuWidget.app.ico" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../MenuWidget.Core/MenuWidget.Core.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../MenuWidget.Services/MenuWidget.Services.csproj" /></ItemGroup>
 </Project>

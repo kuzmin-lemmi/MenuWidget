@@ -58,7 +58,14 @@
           <TextBox x:Name="OutputPath" IsReadOnly="True" TextWrapping="Wrap" Margin="0,0,0,8"/>
           <Button Content="Выбрать папку" HorizontalAlignment="Left" Click="OutputFolder_Click" Margin="0,0,0,18"/>
           <CheckBox x:Name="AutoStartCheck" Content="Запускать в трее при входе в Windows" Margin="0,0,0,12"/>
-          <CheckBox x:Name="TopmostCheck" Content="Закрепить поверх других окон" Checked="Topmost_Changed" Unchecked="Topmost_Changed" Margin="0,0,0,24"/>
+          <CheckBox x:Name="TopmostCheck" Content="Закрепить поверх других окон" Checked="Topmost_Changed" Unchecked="Topmost_Changed" Margin="0,0,0,8"/>
+          <Border Height="1" Background="#DEE4DC" Margin="0,15,0,20"/>
+          <TextBlock Text="Виджет" FontWeight="SemiBold" FontSize="16"/>
+          <DockPanel Margin="0,12,0,8"><TextBlock Text="Тема" VerticalAlignment="Center"/><ComboBox x:Name="WidgetThemeBox" AutomationProperties.Name="Тема виджета" Width="190" HorizontalAlignment="Right"><ComboBoxItem Content="Как в Windows" Tag="system"/><ComboBoxItem Content="Светлая" Tag="light"/><ComboBoxItem Content="Тёмная" Tag="dark"/></ComboBox></DockPanel>
+          <DockPanel Margin="0,0,0,12"><TextBlock Text="Положение на экране" VerticalAlignment="Center"/><ComboBox x:Name="WidgetCornerBox" AutomationProperties.Name="Положение виджета" Width="190" HorizontalAlignment="Right"><ComboBoxItem Content="Справа сверху" Tag="top-right"/><ComboBoxItem Content="Справа снизу" Tag="bottom-right"/><ComboBoxItem Content="Слева сверху" Tag="top-left"/><ComboBoxItem Content="Слева снизу" Tag="bottom-left"/><ComboBoxItem Content="Куда я перетащил" Tag="custom"/></ComboBox></DockPanel>
+          <TextBlock x:Name="WidgetOpacityText" Text="Непрозрачность фона: 100%"/>
+          <Slider x:Name="WidgetOpacitySlider" AutomationProperties.Name="Непрозрачность фона виджета" Minimum="80" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="100" ValueChanged="WidgetOpacity_Changed" Margin="0,6,0,10"/>
+          <CheckBox x:Name="WidgetLockedCheck" Content="Закрепить виджет — не сдвигать мышью" Margin="0,0,0,24"/>
           <Button Content="Сохранить настройки" Background="{StaticResource Green}" Foreground="White" Click="Apply_Click"/>
           <TextBlock x:Name="SettingsFeedback" Text="Настройки сохраняются на этом компьютере." Foreground="{StaticResource Muted}" Margin="0,14,0,0" FontSize="12"/>
         </StackPanel>
