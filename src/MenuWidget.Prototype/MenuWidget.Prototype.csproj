@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>MenuWidget</AssemblyName>
-    <Version>0.2.2</Version>
+    <Version>0.3.0</Version>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../MenuWidget.Core/MenuWidget.Core.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../MenuWidget.Services/MenuWidget.Services.csproj" /></ItemGroup>
