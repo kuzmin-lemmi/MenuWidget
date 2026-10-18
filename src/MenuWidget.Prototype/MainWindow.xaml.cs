@@ -223,7 +223,7 @@ public partial class MainWindow : Window
         {
             updater ??= new(data, typeof(App).Assembly.GetName().Version!);
             var result = await updater.CheckAsync(updateCancellation.Token); candidate = result.Candidate;
-            UpdateStatus.Text = result.Status switch { UpdateCheckStatus.Available => $"Доступна версия {candidate!.Version}", UpdateCheckStatus.UpToDate => "Установлена актуальная версия.", _ => "Опубликованных версий пока нет." };
+            UpdateStatus.Text = result.Status switch { UpdateCheckStatus.Available => $"Доступна версия {candidate!.Version}", UpdateCheckStatus.UpToDate => "Установлена актуальная версия.", _ => "Стабильных версий пока нет." };
             UpdateNotes.Text = candidate?.Notes ?? ""; InstallUpdate.IsEnabled = candidate is not null;
         }
         catch (OperationCanceledException) { UpdateStatus.Text = "Проверка отменена или истекло время ожидания."; }

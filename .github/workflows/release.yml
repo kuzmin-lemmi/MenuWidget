@@ -12,12 +12,23 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      - name: Check whether release already exists
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view '${{ github.ref_name }}' --json id 2>$null
+          if ($LASTEXITCODE -eq 0) { 'exists=true' >> $env:GITHUB_OUTPUT } else { 'exists=false' >> $env:GITHUB_OUTPUT }
+          exit 0
       - name: Build installer and update manifest
+        if: steps.existing.outputs.exists != 'true'
         shell: pwsh
         run: |
           $version = '${{ github.ref_name }}'.TrimStart('v')
           ./scripts/Build-Release.ps1 -Version $version
       - name: Create draft for manual acceptance
+        if: steps.existing.outputs.exists != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,4 +1,4 @@
-param([string]$DotnetPath, [switch]$Capture, [Alias('PublishPrototype')][switch]$PublishApp, [string]$Version="0.2.0", [string]$OutputDirectory="artifacts/app")
+param([string]$DotnetPath, [switch]$Capture, [Alias('PublishPrototype')][switch]$PublishApp, [string]$Version="0.2.2", [string]$OutputDirectory="artifacts/app")
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot

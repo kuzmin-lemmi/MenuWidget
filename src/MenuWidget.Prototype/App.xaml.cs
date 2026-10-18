@@ -21,7 +21,18 @@ public partial class App : Application
             if (demo || e.Args.Contains("--health-check")) { await RunDemoAsync(e.Args, demo); return; }
             if (e.Args.Contains("--uninstall-integrations"))
             {
-                await SingleInstance.SendAsync("exit"); new WindowsIntegration().RemoveAll(); Shutdown(); return;
+                await SingleInstance.SendAsync("exit"); new WindowsIntegration(e.Args.ElementAtOrDefault(1)).RemoveAll(); Shutdown(); return;
+            }
+            // Explicit developer acceptance command; does not change the user's settings.
+            if (e.Args.Length == 2 && e.Args[0] == "--diagnostics-integrations")
+            {
+                var integration = new WindowsIntegration();
+                integration.RemoveAll(); integration.RemoveAll(); // Missing integrations must be harmless.
+                await integration.ApplyAsync(new(true, new TimeOnly(18, 0), TimeSpan.FromMinutes(30)), default);
+                await integration.SnoozeAsync(DateTimeOffset.Now.AddMinutes(30), default);
+                integration.SetAutoStart(true);
+                File.WriteAllText(e.Args[1], System.Text.Json.JsonSerializer.Serialize(new { success = true, executable = Environment.ProcessPath }));
+                Shutdown(); return;
             }
             instance = new SingleInstance();
             if (!instance.IsPrimary)

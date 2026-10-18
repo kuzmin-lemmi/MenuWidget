@@ -12,6 +12,11 @@ if (args.Length == 2 && args[0] == "--write-fixtures")
     Console.WriteLine("Wrote five synthetic OOXML files."); return 0;
 }
 
+if (args.Length == 4 && args[0] == "--verify-menus")
+{
+    await RealMenuChecks.RunAsync(args[1], args[2], DateOnly.ParseExact(args[3], "yyyy-MM-dd")); return 0;
+}
+
 var temp = Path.Combine(Path.GetTempPath(), "MenuWidget-Probes-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(temp);
 var passed = 0;

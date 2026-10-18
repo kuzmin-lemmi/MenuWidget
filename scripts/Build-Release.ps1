@@ -1,4 +1,4 @@
-param([ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$Version='0.2.0', [string]$DotnetPath)
+param([ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$Version='0.2.2', [string]$DotnetPath)
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
@@ -61,7 +61,7 @@ try {
         $null=Element $component 'Shortcut' @{Id=($pair.Id+'Link');Name='MenuWidget';Target='[INSTALLFOLDER]MenuWidget.exe';WorkingDirectory='INSTALLFOLDER'}
         $null=Element $feature 'ComponentRef' @{Id=$pair.Id}
     }
-    $null=Element $package 'CustomAction' @{Id='RemoveUserIntegration';FileRef=$mainFile;ExeCommand='--uninstall-integrations';Return='ignore';Execute='immediate';Impersonate='yes'}
+    $null=Element $package 'CustomAction' @{Id='RemoveUserIntegration';FileRef=$mainFile;ExeCommand='--uninstall-integrations [UserSID]';Return='ignore';Execute='immediate';Impersonate='yes'}
     $sequence=Element $package 'InstallExecuteSequence'
     $null=Element $sequence 'Custom' @{Action='RemoveUserIntegration';Before='RemoveFiles';Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE'}
     $document.Save($source)

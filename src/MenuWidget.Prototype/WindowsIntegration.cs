@@ -6,20 +6,30 @@ using Microsoft.Win32;
 
 namespace MenuWidget.Prototype;
 
-internal sealed class WindowsIntegration : IReminderScheduler
+internal sealed class WindowsIntegration(string? userSid = null) : IReminderScheduler
 {
-    private static string Suffix => WindowsIdentity.GetCurrent().User!.Value;
-    internal static string InstanceName => @"Local\MenuWidget." + Suffix;
-    private static string WeeklyName => "MenuWidget.Reminder." + Suffix;
-    private static string SnoozeName => "MenuWidget.Snooze." + Suffix;
+    private static string CurrentSid => WindowsIdentity.GetCurrent().User!.Value;
+    private readonly string ownerSid = userSid is null ? CurrentSid : new SecurityIdentifier(userSid).Value;
+    internal static string InstanceName => @"Local\MenuWidget." + CurrentSid;
+    private string StartupName => "MenuWidget.Startup." + ownerSid;
+    private string WeeklyName => "MenuWidget.Reminder." + ownerSid;
+    private string SnoozeName => "MenuWidget.Snooze." + ownerSid;
     private static string Executable => Environment.ProcessPath ?? throw new IOException("Не найден путь программы.");
     private const string RunPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public void SetAutoStart(bool enabled)
     {
-        using var key = Registry.CurrentUser.CreateSubKey(RunPath);
-        if (enabled) key.SetValue("MenuWidget", '"' + Executable + "\" --background");
-        else key.DeleteValue("MenuWidget", throwOnMissingValue: false);
+        // Migrate the old Run entry; all current integration now lives in Task Scheduler.
+        using (var key = Registry.Users.CreateSubKey(ownerSid + @"\" + RunPath))
+        { key.DeleteValue("MenuWidget", throwOnMissingValue: false); key.Flush(); }
+        WithService(service =>
+        {
+            if (!enabled) { DeleteTask(service, StartupName); return; }
+            dynamic task = Definition(service);
+            dynamic logon = task.Triggers.Create(9); logon.UserId = ownerSid;
+            task.Actions.Item(1).Arguments = "--background";
+            service.GetFolder(@"\").RegisterTaskDefinition(StartupName, task, 6, ownerSid, null, 3);
+        });
     }
 
     public Task ApplyAsync(ReminderSettings settings, CancellationToken cancellationToken)
@@ -34,8 +44,8 @@ internal sealed class WindowsIntegration : IReminderScheduler
             var sunday = today.AddDays((7 - (int)today.DayOfWeek) % 7).Add(settings.SundayTime.ToTimeSpan());
             if (sunday <= DateTime.Now) sunday = sunday.AddDays(7);
             weekly.StartBoundary = sunday.ToString("yyyy-MM-ddTHH:mm:ss"); weekly.DaysOfWeek = 1; weekly.WeeksInterval = 1;
-            dynamic logon = task.Triggers.Create(9); logon.UserId = Suffix;
-            service.GetFolder(@"\").RegisterTaskDefinition(WeeklyName, task, 6, Suffix, null, 3);
+            dynamic logon = task.Triggers.Create(9); logon.UserId = ownerSid;
+            service.GetFolder(@"\").RegisterTaskDefinition(WeeklyName, task, 6, ownerSid, null, 3);
         });
         return Task.CompletedTask;
     }
@@ -47,7 +57,7 @@ internal sealed class WindowsIntegration : IReminderScheduler
         {
             dynamic task = Definition(service);
             dynamic trigger = task.Triggers.Create(1); trigger.StartBoundary = until.LocalDateTime.ToString("yyyy-MM-ddTHH:mm:ss");
-            service.GetFolder(@"\").RegisterTaskDefinition(SnoozeName, task, 6, Suffix, null, 3);
+            service.GetFolder(@"\").RegisterTaskDefinition(SnoozeName, task, 6, ownerSid, null, 3);
         });
         return Task.CompletedTask;
     }
@@ -59,11 +69,11 @@ internal sealed class WindowsIntegration : IReminderScheduler
     }
     public void RemoveAll() { SetAutoStart(false); RemoveAsync(default).GetAwaiter().GetResult(); }
 
-    private static dynamic Definition(dynamic service)
+    private dynamic Definition(dynamic service)
     {
         dynamic task = service.NewTask(0);
         task.RegistrationInfo.Description = "MenuWidget: напоминание о подготовке питания";
-        task.Principal.UserId = Suffix; task.Principal.LogonType = 3; task.Principal.RunLevel = 0;
+        task.Principal.UserId = ownerSid; task.Principal.LogonType = 3; task.Principal.RunLevel = 0;
         task.Settings.Enabled = true; task.Settings.StartWhenAvailable = true;
         task.Settings.DisallowStartIfOnBatteries = false; task.Settings.StopIfGoingOnBatteries = false;
         task.Settings.ExecutionTimeLimit = "PT0S"; task.Settings.MultipleInstances = 2;
@@ -74,7 +84,8 @@ internal sealed class WindowsIntegration : IReminderScheduler
     private static void DeleteTask(dynamic service, string name)
     {
         try { service.GetFolder(@"\").DeleteTask(name, 0); }
-        catch (COMException ex) when (ex.HResult is unchecked((int)0x80070002) or unchecked((int)0x8004130F)) { }
+        // COM interop maps ERROR_FILE_NOT_FOUND to FileNotFoundException on .NET.
+        catch (Exception ex) when (ex.HResult is unchecked((int)0x80070002) or unchecked((int)0x8004130F)) { }
     }
     private static void WithService(Action<dynamic> action)
     {
