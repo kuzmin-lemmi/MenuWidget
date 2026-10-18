@@ -26,6 +26,11 @@ public partial class MainWindow : Window
     private bool messageIsError;
     private string[]? dragProbeFiles;
     public bool IsDemo { get; }
+    public bool IsWorking => busy;
+    public void RefreshToday() => RefreshPreview();
+    private GitHubUpdateService? updater;
+    private UpdateCandidate? candidate;
+    private CancellationTokenSource? updateCancellation;
     private int SetIndex => SecondSet.IsChecked == true ? 1 : 0;
 
     public MainWindow(bool demo = false)
@@ -37,16 +42,17 @@ public partial class MainWindow : Window
         if (!demo) for (var i = 0; i < 2; i++) saved[i] = store.ReadAsync((MenuSetId)i, default).GetAwaiter().GetResult();
         InitializeComponent();
         Title = demo ? "MenuWidget · демонстрация" : "Меню для сайта";
+        VersionText.Text = "MenuWidget · " + typeof(App).Assembly.GetName().Version!.ToString(3);
         WeekPicker.SelectedDate = cycle.SuggestedMonday(DateOnly.FromDateTime(DateTime.Now)).ToDateTime(TimeOnly.MinValue);
         AnchorPicker.SelectedDate = settings.FirstWeekMonday?.ToDateTime(TimeOnly.MinValue);
         ReminderTime.Text = settings.ReminderTime.ToString("HH:mm"); OutputPath.Text = settings.OutputDirectory;
+        ReminderEnabled.IsChecked = settings.ReminderEnabled; AutoStartCheck.IsChecked = settings.AutoStart;
         TopmostCheck.IsChecked = settings.Topmost; Topmost = settings.Topmost;
         loaded = true;
         if (settings.FirstWeekMonday is { } anchor && cycle.GetSet(DateOnly.FromDateTime(WeekPicker.SelectedDate!.Value), new(anchor)) == MenuSetId.Second) SecondSet.IsChecked = true;
         ScenePicker.Visibility = demo ? Visibility.Visible : Visibility.Collapsed;
         if (demo) { VersionText.Text = "Демонстрация интерфейса"; ScenePicker.SelectedIndex = 0; SetScene("welcome"); }
         else ShowPanel(saved.All(s => s is null) && settings.FirstWeekMonday is null ? "welcome" : "home");
-        Closing += (_, e) => { if (busy) { e.Cancel = true; MessageBox.Show(this, "Дождитесь завершения работы с файлами.", "Подготовка меню"); } };
         RefreshPreview();
     }
 
@@ -91,7 +97,7 @@ public partial class MainWindow : Window
         SaveDraftButton.IsEnabled = !busy;
         Feedback.Text = message ?? (monday.DayOfWeek != DayOfWeek.Monday ? "Выберите понедельник начала недели." : draft.Count > 0 ? $"Добавьте недостающие файлы и подтвердите порядок. Сохранённые шаблоны пока не изменены." : ready ? "Проверьте даты. Исходные шаблоны останутся без изменений." : $"Добавьте пять файлов для выбранного комплекта.");
         Feedback.Foreground = messageIsError ? Brushes.Firebrick : (Brush)FindResource("Muted");
-        ReminderSummary.Text = "Пока недоступно";
+        ReminderSummary.Text = settings.ReminderEnabled ? $"Воскресенье, {settings.ReminderTime:HH:mm}" : "Выключено";
         DayRows.Items.Clear();
         if (monday.DayOfWeek != DayOfWeek.Monday) return;
         foreach (var row in cycle.Preview(monday, (MenuSetId)SetIndex))
@@ -173,15 +179,15 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError(ex); }
         finally { SetBusy(false); }
     }
-    private void Apply_Click(object sender, RoutedEventArgs e)
+    private async void Apply_Click(object sender, RoutedEventArgs e)
     {
         if (busy) return;
         if (AnchorPicker.SelectedDate is not { DayOfWeek: DayOfWeek.Monday } date) { SettingsFeedback.Text = "Укажите понедельник недели с меню 1–5."; return; }
         if (!TimeOnly.TryParseExact(ReminderTime.Text.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time)) { SettingsFeedback.Text = "Введите время в формате ЧЧ:ММ, например 18:00."; return; }
         try
         {
-            var updated = settings with { FirstWeekMonday = DateOnly.FromDateTime(date), ReminderTime = time, Topmost = TopmostCheck.IsChecked == true, OutputDirectory = OutputPath.Text };
-            if (!IsDemo) data.SaveSettings(updated);
+            var updated = settings with { FirstWeekMonday = DateOnly.FromDateTime(date), ReminderTime = time, ReminderEnabled = ReminderEnabled.IsChecked == true, AutoStart = AutoStartCheck.IsChecked == true, Topmost = TopmostCheck.IsChecked == true, OutputDirectory = OutputPath.Text };
+            if (!IsDemo) await ((App)Application.Current).Runtime!.ApplySettingsAsync(settings, updated);
             settings = updated;
             SettingsFeedback.Text = IsDemo ? "Применено только в демонстрации." : "Настройки сохранены. После закрытия программы они останутся.";
             SelectCycleSet(); RefreshPreview();
@@ -203,7 +209,44 @@ public partial class MainWindow : Window
     private void Week_Changed(object? sender, SelectionChangedEventArgs e) { if (loaded) { message = null; SelectCycleSet(); RefreshPreview(); } }
     private void Scene_Changed(object sender, SelectionChangedEventArgs e) { if (loaded && ScenePicker.SelectedItem is ComboBoxItem item) SetScene((string)item.Tag); }
     private void Settings_Click(object sender, RoutedEventArgs e) { if (!busy) ShowPanel("settings"); }
-    private void Updates_Click(object sender, RoutedEventArgs e) { if (!busy) ShowPanel("updates"); }
+    private async void Updates_Click(object sender, RoutedEventArgs e) { if (!busy) { ShowPanel("updates"); await CheckUpdatesAsync(); } }
+    private async void CheckAgain_Click(object sender, RoutedEventArgs e) => await CheckUpdatesAsync();
+    private void CancelUpdate_Click(object sender, RoutedEventArgs e) => updateCancellation?.Cancel();
+    private void TestReminder_Click(object sender, RoutedEventArgs e) { if (!IsDemo) ((App)Application.Current).Runtime!.TestNotification(); }
+    private async Task CheckUpdatesAsync()
+    {
+        if (busy || IsDemo) return;
+        candidate = null; InstallUpdate.IsEnabled = false; UpdateNotes.Text = "";
+        updateCancellation = new(); SetBusy(true); CancelUpdate.Visibility = Visibility.Visible;
+        UpdateStatus.Text = "Проверяю GitHub Releases…";
+        try
+        {
+            updater ??= new(data, typeof(App).Assembly.GetName().Version!);
+            var result = await updater.CheckAsync(updateCancellation.Token); candidate = result.Candidate;
+            UpdateStatus.Text = result.Status switch { UpdateCheckStatus.Available => $"Доступна версия {candidate!.Version}", UpdateCheckStatus.UpToDate => "Установлена актуальная версия.", _ => "Опубликованных версий пока нет." };
+            UpdateNotes.Text = candidate?.Notes ?? ""; InstallUpdate.IsEnabled = candidate is not null;
+        }
+        catch (OperationCanceledException) { UpdateStatus.Text = "Проверка отменена или истекло время ожидания."; }
+        catch (Exception ex) { UpdateStatus.Text = "Не удалось проверить обновления: " + ex.Message; }
+        finally { updateCancellation.Dispose(); updateCancellation = null; CancelUpdate.Visibility = Visibility.Collapsed; SetBusy(false); }
+    }
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (busy || candidate is null || updater is null || IsDemo) return;
+        updateCancellation = new(); SetBusy(true); InstallUpdate.IsEnabled = false; CancelUpdate.Visibility = Visibility.Visible;
+        UpdateStatus.Text = "Скачиваю и проверяю установщик…";
+        try
+        {
+            var progress = new Progress<DownloadProgress>(p => UpdateProgress.Value = p.TotalBytes > 0 ? 100.0 * p.ReceivedBytes / p.TotalBytes.Value : 0);
+            var path = await updater.DownloadVerifiedAsync(candidate, progress, updateCancellation.Token);
+            data.SaveSettings(settings);
+            await updater.LaunchInstallerAsync(path, updateCancellation.Token);
+            ((App)Application.Current).Runtime!.RequestExit(forUpdate: true);
+        }
+        catch (OperationCanceledException) { UpdateStatus.Text = "Загрузка отменена. Версия программы не изменена."; }
+        catch (Exception ex) { UpdateStatus.Text = "Не удалось установить обновление: " + ex.Message; }
+        finally { updateCancellation.Dispose(); updateCancellation = null; CancelUpdate.Visibility = Visibility.Collapsed; InstallUpdate.IsEnabled = candidate is not null; SetBusy(false); }
+    }
     private void Home_Click(object sender, RoutedEventArgs e) { ShowPanel("home"); RefreshPreview(); }
     private void Topmost_Changed(object sender, RoutedEventArgs e) { if (sender is CheckBox check) Topmost = check.IsChecked == true; }
     private void OutputFolder_Click(object sender, RoutedEventArgs e) { var picker = new OpenFolderDialog { Title = "Куда сохранять готовые меню" }; if (picker.ShowDialog(this) == true) OutputPath.Text = picker.FolderName; }

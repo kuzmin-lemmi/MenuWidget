@@ -14,6 +14,8 @@ public record UserSettings
     public string OutputDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Меню для сайта");
 }
 
+public record WindowPlacement(double Left, double Top, double Width, double Height);
+
 public sealed class LocalData
 {
     public string Root { get; }
@@ -27,6 +29,15 @@ public sealed class LocalData
         return result;
     }
     public void SaveSettings(UserSettings settings) => AtomicJson(Path.Combine(Root, "settings.json"), settings);
+    public ReminderState ReadReminderState() => ReadOptional<ReminderState>("reminder-state.json") ?? new(null, null);
+    public void SaveReminderState(ReminderState state) => AtomicJson(Path.Combine(Root, "reminder-state.json"), state);
+    public WindowPlacement? ReadPlacement() => ReadOptional<WindowPlacement>("window.json");
+    public void SavePlacement(WindowPlacement placement) => AtomicJson(Path.Combine(Root, "window.json"), placement);
+    private T? ReadOptional<T>(string file) where T : class
+    {
+        var path = Path.Combine(Root, file);
+        return File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path)) : null;
+    }
 
     internal static void AtomicJson<T>(string path, T value)
     {

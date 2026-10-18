@@ -50,13 +50,14 @@
           <DatePicker x:Name="AnchorPicker" AutomationProperties.Name="Понедельник начала цикла меню 1–5" Width="170" HorizontalAlignment="Left"/>
           <Border Height="1" Background="#DEE4DC" Margin="0,23,0,23"/>
           <TextBlock Text="Напоминание по воскресеньям" FontWeight="SemiBold" FontSize="16"/>
-          <CheckBox x:Name="ReminderEnabled" Content="Напоминать о подготовке меню (скоро)" IsEnabled="False" Margin="0,14,0,12"/>
+          <CheckBox x:Name="ReminderEnabled" Content="Напоминать о подготовке меню" Margin="0,14,0,12"/>
           <DockPanel><TextBlock Text="Время на этом компьютере" VerticalAlignment="Center"/><TextBox x:Name="ReminderTime" AutomationProperties.Name="Время воскресного напоминания, часы и минуты" Text="18:00" Width="90" HorizontalAlignment="Right"/></DockPanel>
-          <TextBlock Text="В этой тестовой версии системные напоминания ещё недоступны." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,12,0,20"/>
+          <TextBlock Text="При закрытии окна программа остаётся у часов. Если компьютер был выключен, напоминание появится после входа в Windows." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,12,0,20"/>
+          <Button Content="Проверить уведомление" Click="TestReminder_Click" Margin="0,0,0,14"/>
           <TextBlock Text="Папка готовых меню" FontWeight="SemiBold" Margin="0,0,0,8"/>
           <TextBox x:Name="OutputPath" IsReadOnly="True" TextWrapping="Wrap" Margin="0,0,0,8"/>
           <Button Content="Выбрать папку" HorizontalAlignment="Left" Click="OutputFolder_Click" Margin="0,0,0,18"/>
-          <CheckBox Content="Открывать виджет при входе в Windows" IsEnabled="False" Margin="0,0,0,12"/>
+          <CheckBox x:Name="AutoStartCheck" Content="Запускать в трее при входе в Windows" Margin="0,0,0,12"/>
           <CheckBox x:Name="TopmostCheck" Content="Закрепить поверх других окон" Checked="Topmost_Changed" Unchecked="Topmost_Changed" Margin="0,0,0,24"/>
           <Button Content="Сохранить настройки" Background="{StaticResource Green}" Foreground="White" Click="Apply_Click"/>
           <TextBlock x:Name="SettingsFeedback" Text="Настройки сохраняются на этом компьютере." Foreground="{StaticResource Muted}" Margin="0,14,0,0" FontSize="12"/>
@@ -65,16 +66,20 @@
           <Button Content="← Назад к меню" HorizontalAlignment="Left" Click="Home_Click" Padding="12,7" Margin="0,0,0,16"/>
           <TextBlock Text="Обновления" FontSize="25" FontWeight="SemiBold" Margin="0,0,0,20"/>
           <Border Background="#E8EEE6" Padding="18" CornerRadius="12"><StackPanel><TextBlock Text="Вы управляете обновлением" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="Программа покажет новую версию и список изменений. Установка начнётся после нажатия «Установить»." Margin="0,8,0,0"/></StackPanel></Border>
-          <TextBlock Text="Тестовая версия: 0.1.0" Margin="0,20,0,10"/>
-          <TextBlock Text="Источник: kuzmin-lemmi/MenuWidget" Foreground="{StaticResource Muted}" Margin="0,0,0,20"/>
-          <Button Content="Установить новую версию" IsEnabled="False" Background="{StaticResource Green}" Foreground="White"/>
-          <TextBlock Text="Обновление из программы будет доступно после публикации установщика. В этой тестовой версии файлы обновлений не скачиваются." Margin="0,16,0,0" Foreground="{StaticResource Muted}"/>
+          <TextBlock Text="Источник: kuzmin-lemmi/MenuWidget · Windows x64" Margin="0,18,0,10"/>
+          <TextBlock x:Name="UpdateStatus" Text="Нажмите «Проверить обновления»." Margin="0,0,0,12"/>
+          <TextBox x:Name="UpdateNotes" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="210" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+          <ProgressBar x:Name="UpdateProgress" Height="6" Maximum="100" Margin="0,0,0,12"/>
+          <Button Content="Проверить обновления" Click="CheckAgain_Click" Margin="0,0,0,8"/>
+          <Button x:Name="InstallUpdate" Content="Установить новую версию" Click="InstallUpdate_Click" IsEnabled="False" Background="{StaticResource Green}" Foreground="White"/>
+          <Button x:Name="CancelUpdate" Content="Отменить" Click="CancelUpdate_Click" Visibility="Collapsed" Margin="0,8,0,0"/>
+          <TextBlock Text="Во время установки программа закроется и откроется снова. Настройки и шаблоны сохранятся." Margin="0,16,0,0" Foreground="{StaticResource Muted}"/>
         </StackPanel>
       </StackPanel>
     </ScrollViewer>
     <StackPanel Grid.Row="2" Margin="0,15,0,0">
       <Border Height="1" Background="#DEE4DC" Margin="0,0,0,10"/>
-      <DockPanel><TextBlock x:Name="VersionText" Text="MenuWidget · тестовая версия 0.1.0" FontSize="11" Foreground="{StaticResource Muted}"/><ComboBox x:Name="ScenePicker" Width="156" FontSize="11" HorizontalAlignment="Right" SelectionChanged="Scene_Changed" ToolTip="Демонстрационные состояния макета"><ComboBoxItem Content="Первый запуск" Tag="welcome"/><ComboBoxItem Content="Нет файлов" Tag="empty"/><ComboBoxItem Content="Часть файлов" Tag="partial"/><ComboBoxItem Content="Комплект готов" Tag="ready"/><ComboBoxItem Content="Ошибка" Tag="error"/><ComboBoxItem Content="Настройки" Tag="settings"/><ComboBoxItem Content="Обновления" Tag="updates"/></ComboBox></DockPanel>
+      <DockPanel><TextBlock x:Name="VersionText" Text="MenuWidget · 0.2.0" FontSize="11" Foreground="{StaticResource Muted}"/><ComboBox x:Name="ScenePicker" Width="156" FontSize="11" HorizontalAlignment="Right" SelectionChanged="Scene_Changed" ToolTip="Демонстрационные состояния макета"><ComboBoxItem Content="Первый запуск" Tag="welcome"/><ComboBoxItem Content="Нет файлов" Tag="empty"/><ComboBoxItem Content="Часть файлов" Tag="partial"/><ComboBoxItem Content="Комплект готов" Tag="ready"/><ComboBoxItem Content="Ошибка" Tag="error"/><ComboBoxItem Content="Настройки" Tag="settings"/><ComboBoxItem Content="Обновления" Tag="updates"/></ComboBox></DockPanel>
     </StackPanel>
   </Grid>
   </Border>

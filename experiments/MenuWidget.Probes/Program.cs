@@ -82,6 +82,7 @@ try
     });
     Check("xlsx/reject-missing-cell", () => Throws<InvalidDataException>(() => XlsxDatePatch.WriteCopy(sourceForErrors, Path.Combine(temp, "missing.xlsx"), new("Меню", "Z99"), new(2026, 10, 19))));
     ServicesChecks.Run(temp, Check, path => Fixture(path, false));
+    DesktopChecks.Run(temp, Check);
     Console.WriteLine($"RESULT: {passed} passed, {failed} failed. All fixtures synthetic; no school files read.");
     return failed == 0 ? 0 : 1;
 }

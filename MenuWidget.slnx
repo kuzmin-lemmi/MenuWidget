@@ -6,5 +6,6 @@
     <Project Path="src/MenuWidget.Core/MenuWidget.Core.csproj" />
     <Project Path="src/MenuWidget.Prototype/MenuWidget.Prototype.csproj" />
     <Project Path="src/MenuWidget.Services/MenuWidget.Services.csproj" />
+    <Project Path="src/MenuWidget.Updater/MenuWidget.Updater.csproj" />
   </Folder>
 </Solution>

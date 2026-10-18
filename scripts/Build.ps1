@@ -1,4 +1,4 @@
-param([string]$DotnetPath, [switch]$Capture, [Alias('PublishPrototype')][switch]$PublishApp)
+param([string]$DotnetPath, [switch]$Capture, [Alias('PublishPrototype')][switch]$PublishApp, [string]$Version="0.2.0", [string]$OutputDirectory="artifacts/app")
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
@@ -12,16 +12,19 @@ try {
     $env:DOTNET_CLI_HOME = Join-Path $repoRoot '.tools\cli'
     & $DotnetPath restore MenuWidget.slnx --configfile NuGet.Config
     if ($LASTEXITCODE -ne 0) { throw 'Restore failed.' }
-    & $DotnetPath build MenuWidget.slnx -c Release --no-restore
+    & $DotnetPath build MenuWidget.slnx -c Release --no-restore -p:BaseOutputPath=bin/Current/ -p:Version=$Version
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
-    & $DotnetPath run --project experiments/MenuWidget.Probes -c Release --no-build --no-restore
+    & $DotnetPath run --project experiments/MenuWidget.Probes -c Release --no-build --no-restore -p:BaseOutputPath=bin/Current/
     if ($LASTEXITCODE -ne 0) { throw 'Technical probes failed.' }
     if ($Capture) {
-        & $DotnetPath run --project src/MenuWidget.Prototype -c Release --no-build --no-restore -- --capture docs/design
+        & $DotnetPath run --project src/MenuWidget.Prototype -c Release --no-build --no-restore -p:BaseOutputPath=bin/Current/ -- --capture docs/design
         if ($LASTEXITCODE -ne 0) { throw 'UI capture failed.' }
     }
     if ($PublishApp) {
-        & $DotnetPath publish src/MenuWidget.Prototype -c Release -r win-x64 --self-contained true -o artifacts/app
+        & $DotnetPath publish src/MenuWidget.Prototype -c Release -r win-x64 --self-contained true -p:BaseOutputPath=bin/Current/ -p:Version=$Version -o $OutputDirectory
         if ($LASTEXITCODE -ne 0) { throw 'App publish failed.' }
+        & $DotnetPath publish src/MenuWidget.Updater -c Release -r win-x64 -p:Version=$Version -p:BaseOutputPath=bin/Current/ -o artifacts/updater
+        if ($LASTEXITCODE -ne 0) { throw 'Updater publish failed.' }
+        Copy-Item -LiteralPath artifacts/updater/MenuWidget.Updater.exe -Destination $OutputDirectory -Force
     }
 } finally { Pop-Location }

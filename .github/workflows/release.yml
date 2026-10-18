@@ -1,0 +1,25 @@
+name: Release installer
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Build installer and update manifest
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          ./scripts/Build-Release.ps1 -Version $version
+      - name: Create draft for manual acceptance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ github.ref_name }}' artifacts/release/MenuWidget-Setup-x64.msi artifacts/release/update-manifest.json artifacts/release/SHA256SUMS.txt --draft --generate-notes --title 'MenuWidget ${{ github.ref_name }}'
