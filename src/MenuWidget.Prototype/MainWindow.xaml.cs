@@ -76,7 +76,8 @@ public partial class MainWindow : Window
         if (!IsDemo) return;
         var item = ScenePicker.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == scene);
         if (item is not null && ScenePicker.SelectedItem != item) ScenePicker.SelectedItem = item;
-        ShowPanel(scene is "welcome" or "settings" or "updates" ? scene : "home");
+        ShowPanel(scene is "welcome" or "settings" or "updates" ? scene : scene == "settings-widget" ? "settings" : "home");
+        if (scene is "settings" or "settings-widget") (scene == "settings" ? CycleTab : WidgetTab).IsChecked = true;
         if (scene is "empty" or "partial" or "ready" or "error")
         {
             Array.Clear(demoFiles[SetIndex]); message = null; messageIsError = scene == "error";
@@ -250,6 +251,21 @@ public partial class MainWindow : Window
     private async void Updates_Click(object sender, RoutedEventArgs e) { if (!busy) { ShowPanel("updates"); await CheckUpdatesAsync(); } }
     private async void CheckAgain_Click(object sender, RoutedEventArgs e) => await CheckUpdatesAsync();
     private void CancelUpdate_Click(object sender, RoutedEventArgs e) => updateCancellation?.Cancel();
+    // Settings are split into tabs so each fits the window without scrolling.
+    private void SettingsTab_Changed(object sender, RoutedEventArgs e)
+    {
+        if (CycleSettings is null || ReminderSettings is null || WidgetSettings is null) return; // Raised while the XAML is still loading.
+        CycleSettings.Visibility = CycleTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        ReminderSettings.Visibility = ReminderTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        WidgetSettings.Visibility = WidgetTab.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+    }
+    private void ReleasePage_Navigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception ex) { UpdateStatus.Text = "Не удалось открыть страницу: " + ex.Message; }
+        e.Handled = true;
+    }
+    private void ShowWidget_Click(object sender, RoutedEventArgs e) { if (!IsDemo) ((App)Application.Current).Runtime?.ShowWidget(force: true); }
     private void TestReminder_Click(object sender, RoutedEventArgs e) { if (!IsDemo) ((App)Application.Current).Runtime!.TestNotification(); }
     private async Task CheckUpdatesAsync()
     {

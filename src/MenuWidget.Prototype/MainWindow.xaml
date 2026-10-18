@@ -7,8 +7,9 @@
       <Button Content="Настройки" Click="Settings_Click" DockPanel.Dock="Right" Padding="12,7"/>
       <StackPanel><TextBlock Text="Меню для сайта" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="Пять файлов на рабочую неделю" Foreground="{StaticResource Muted}" FontSize="11"/></StackPanel>
     </DockPanel>
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel>
+    <!-- No scrolling: on a short screen the whole page scales down instead. -->
+    <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Top">
+      <StackPanel Width="500">
         <StackPanel x:Name="HomePanel">
           <Button x:Name="DragProbeSource" Content="Тест: перетащите отсюда пять искусственных файлов в область ниже" Visibility="Collapsed" PreviewMouseMove="DragProbe_MouseMove" Margin="0,0,0,12"/>
           <Border Background="#E8EEE6" CornerRadius="12" Padding="12" Margin="0,0,0,12">
@@ -43,31 +44,43 @@
           <TextBlock Text="Файлы остаются на вашем компьютере. Excel для работы программы не потребуется." Foreground="{StaticResource Muted}" Margin="0,18,0,0"/>
         </StackPanel>
         <StackPanel x:Name="SettingsPanel" Visibility="Collapsed">
-          <Button Content="← Назад к меню" HorizontalAlignment="Left" Click="Home_Click" Padding="12,7" Margin="0,0,0,16"/>
-          <TextBlock Text="Настройки" FontSize="25" FontWeight="SemiBold" Margin="0,0,0,20"/>
-          <TextBlock Text="Начало цикла" FontWeight="SemiBold" FontSize="16"/>
-          <TextBlock Text="Понедельник, когда используются меню 1–5. Каникулы и праздники не сдвигают чередование." Margin="0,6,0,10" Foreground="{StaticResource Muted}"/>
-          <DatePicker x:Name="AnchorPicker" AutomationProperties.Name="Понедельник начала цикла меню 1–5" Width="170" HorizontalAlignment="Left"/>
-          <Border Height="1" Background="#DEE4DC" Margin="0,23,0,23"/>
-          <TextBlock Text="Напоминание по воскресеньям" FontWeight="SemiBold" FontSize="16"/>
-          <CheckBox x:Name="ReminderEnabled" Content="Напоминать о подготовке меню" Margin="0,14,0,12"/>
-          <DockPanel><TextBlock Text="Время на этом компьютере" VerticalAlignment="Center"/><TextBox x:Name="ReminderTime" AutomationProperties.Name="Время воскресного напоминания, часы и минуты" Text="18:00" Width="90" HorizontalAlignment="Right"/></DockPanel>
-          <TextBlock Text="При закрытии окна программа остаётся у часов. Если компьютер был выключен, напоминание появится после входа в Windows." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,12,0,20"/>
-          <Button Content="Проверить уведомление" Click="TestReminder_Click" Margin="0,0,0,14"/>
-          <TextBlock Text="Папка готовых меню" FontWeight="SemiBold" Margin="0,0,0,8"/>
-          <TextBox x:Name="OutputPath" IsReadOnly="True" TextWrapping="Wrap" Margin="0,0,0,8"/>
-          <Button Content="Выбрать папку" HorizontalAlignment="Left" Click="OutputFolder_Click" Margin="0,0,0,18"/>
-          <CheckBox x:Name="AutoStartCheck" Content="Запускать в трее при входе в Windows" Margin="0,0,0,12"/>
-          <CheckBox x:Name="TopmostCheck" Content="Закрепить поверх других окон" Checked="Topmost_Changed" Unchecked="Topmost_Changed" Margin="0,0,0,8"/>
-          <Border Height="1" Background="#DEE4DC" Margin="0,15,0,20"/>
-          <TextBlock Text="Виджет" FontWeight="SemiBold" FontSize="16"/>
-          <DockPanel Margin="0,12,0,8"><TextBlock Text="Тема" VerticalAlignment="Center"/><ComboBox x:Name="WidgetThemeBox" AutomationProperties.Name="Тема виджета" Width="190" HorizontalAlignment="Right"><ComboBoxItem Content="Как в Windows" Tag="system"/><ComboBoxItem Content="Светлая" Tag="light"/><ComboBoxItem Content="Тёмная" Tag="dark"/></ComboBox></DockPanel>
-          <DockPanel Margin="0,0,0,12"><TextBlock Text="Положение на экране" VerticalAlignment="Center"/><ComboBox x:Name="WidgetCornerBox" AutomationProperties.Name="Положение виджета" Width="190" HorizontalAlignment="Right"><ComboBoxItem Content="Справа сверху" Tag="top-right"/><ComboBoxItem Content="Справа снизу" Tag="bottom-right"/><ComboBoxItem Content="Слева сверху" Tag="top-left"/><ComboBoxItem Content="Слева снизу" Tag="bottom-left"/><ComboBoxItem Content="Куда я перетащил" Tag="custom"/></ComboBox></DockPanel>
-          <TextBlock x:Name="WidgetOpacityText" Text="Непрозрачность фона: 100%"/>
-          <Slider x:Name="WidgetOpacitySlider" AutomationProperties.Name="Непрозрачность фона виджета" Minimum="80" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="100" ValueChanged="WidgetOpacity_Changed" Margin="0,6,0,10"/>
-          <CheckBox x:Name="WidgetLockedCheck" Content="Закрепить виджет — не сдвигать мышью" Margin="0,0,0,24"/>
-          <Button Content="Сохранить настройки" Background="{StaticResource Green}" Foreground="White" Click="Apply_Click"/>
-          <TextBlock x:Name="SettingsFeedback" Text="Настройки сохраняются на этом компьютере." Foreground="{StaticResource Muted}" Margin="0,14,0,0" FontSize="12"/>
+          <DockPanel Margin="0,0,0,14"><Button Content="← Назад к меню" Click="Home_Click" Padding="12,7" DockPanel.Dock="Left"/><TextBlock Text="Настройки" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" Margin="16,0,0,0"/></DockPanel>
+          <UniformGrid Columns="3" Margin="0,0,0,16">
+            <Border Background="White" CornerRadius="9" BorderBrush="#DAE2DB" BorderThickness="1" Margin="0,0,4,0"><RadioButton x:Name="CycleTab" Content="Цикл и папка" GroupName="SettingsTab" IsChecked="True" Checked="SettingsTab_Changed"/></Border>
+            <Border Background="White" CornerRadius="9" BorderBrush="#DAE2DB" BorderThickness="1" Margin="2,0,2,0"><RadioButton x:Name="ReminderTab" Content="Напоминание" GroupName="SettingsTab" Checked="SettingsTab_Changed"/></Border>
+            <Border Background="White" CornerRadius="9" BorderBrush="#DAE2DB" BorderThickness="1" Margin="4,0,0,0"><RadioButton x:Name="WidgetTab" Content="Виджет" GroupName="SettingsTab" Checked="SettingsTab_Changed"/></Border>
+          </UniformGrid>
+          <Border Background="White" CornerRadius="12" BorderBrush="#E0E5DE" BorderThickness="1" Padding="18,16" MinHeight="340">
+            <Grid>
+              <StackPanel x:Name="CycleSettings">
+                <TextBlock Text="Начало цикла" FontWeight="SemiBold" FontSize="15"/>
+                <TextBlock Text="Понедельник, когда используются меню 1–5. Каникулы и праздники не сдвигают чередование." Margin="0,6,0,10" Foreground="{StaticResource Muted}" FontSize="12"/>
+                <DatePicker x:Name="AnchorPicker" AutomationProperties.Name="Понедельник начала цикла меню 1–5" Width="170" HorizontalAlignment="Left"/>
+                <TextBlock Text="Папка готовых меню" FontWeight="SemiBold" FontSize="15" Margin="0,20,0,8"/>
+                <DockPanel><Button Content="Выбрать папку" Click="OutputFolder_Click" DockPanel.Dock="Right" Margin="8,0,0,0" Padding="12,7"/><TextBox x:Name="OutputPath" IsReadOnly="True" TextWrapping="NoWrap" VerticalContentAlignment="Center"/></DockPanel>
+                <CheckBox x:Name="AutoStartCheck" Content="Запускать при входе в Windows" Margin="0,20,0,10"/>
+                <CheckBox x:Name="TopmostCheck" Content="Поверх других окон (программа и виджет)" Checked="Topmost_Changed" Unchecked="Topmost_Changed"/>
+              </StackPanel>
+              <StackPanel x:Name="ReminderSettings" Visibility="Collapsed">
+                <TextBlock Text="Напоминание по воскресеньям" FontWeight="SemiBold" FontSize="15"/>
+                <CheckBox x:Name="ReminderEnabled" Content="Напоминать о подготовке меню" Margin="0,14,0,12"/>
+                <DockPanel><TextBlock Text="Время на этом компьютере" VerticalAlignment="Center"/><TextBox x:Name="ReminderTime" AutomationProperties.Name="Время воскресного напоминания, часы и минуты" Text="18:00" Width="90" HorizontalAlignment="Right"/></DockPanel>
+                <TextBlock Text="Программа остаётся у часов после закрытия окна. Если компьютер был выключен, напоминание появится после входа в Windows. Пока вы не ответите, оно повторяется каждые 30 минут." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,12,0,16"/>
+                <Button Content="Проверить уведомление" Click="TestReminder_Click" HorizontalAlignment="Left" Padding="14,8"/>
+              </StackPanel>
+              <StackPanel x:Name="WidgetSettings" Visibility="Collapsed">
+                <Button Content="Показать виджет на рабочем столе" Click="ShowWidget_Click" Background="{StaticResource Green}" Foreground="White" Margin="0,0,0,6"/>
+                <TextBlock Text="✕ на виджете скрывает его. Вернуть: эта кнопка, ярлык MenuWidget или значок у часов → «Показать виджет»." Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,0,14"/>
+                <DockPanel Margin="0,0,0,8"><TextBlock Text="Тема" VerticalAlignment="Center"/><ComboBox x:Name="WidgetThemeBox" AutomationProperties.Name="Тема виджета" Width="190" HorizontalAlignment="Right"><ComboBoxItem Content="Как в Windows" Tag="system"/><ComboBoxItem Content="Светлая" Tag="light"/><ComboBoxItem Content="Тёмная" Tag="dark"/></ComboBox></DockPanel>
+                <DockPanel Margin="0,0,0,12"><TextBlock Text="Положение на экране" VerticalAlignment="Center"/><ComboBox x:Name="WidgetCornerBox" AutomationProperties.Name="Положение виджета" Width="190" HorizontalAlignment="Right"><ComboBoxItem Content="Справа сверху" Tag="top-right"/><ComboBoxItem Content="Справа снизу" Tag="bottom-right"/><ComboBoxItem Content="Слева сверху" Tag="top-left"/><ComboBoxItem Content="Слева снизу" Tag="bottom-left"/><ComboBoxItem Content="Куда я перетащил" Tag="custom"/></ComboBox></DockPanel>
+                <TextBlock x:Name="WidgetOpacityText" Text="Непрозрачность фона: 100%"/>
+                <Slider x:Name="WidgetOpacitySlider" AutomationProperties.Name="Непрозрачность фона виджета" Minimum="80" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="100" ValueChanged="WidgetOpacity_Changed" Margin="0,6,0,10"/>
+                <CheckBox x:Name="WidgetLockedCheck" Content="Закрепить виджет — не сдвигать мышью"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+          <Button Content="Сохранить настройки" Background="{StaticResource Green}" Foreground="White" Click="Apply_Click" Margin="0,16,0,0"/>
+          <TextBlock x:Name="SettingsFeedback" Text="Настройки сохраняются на этом компьютере." Foreground="{StaticResource Muted}" Margin="0,10,0,0" FontSize="12"/>
         </StackPanel>
         <StackPanel x:Name="UpdatesPanel" Visibility="Collapsed">
           <Button Content="← Назад к меню" HorizontalAlignment="Left" Click="Home_Click" Padding="12,7" Margin="0,0,0,16"/>
@@ -75,7 +88,8 @@
           <Border Background="#E8EEE6" Padding="18" CornerRadius="12"><StackPanel><TextBlock Text="Вы управляете обновлением" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="Программа покажет новую версию и список изменений. Установка начнётся после нажатия «Установить»." Margin="0,8,0,0"/></StackPanel></Border>
           <TextBlock Text="Источник: kuzmin-lemmi/MenuWidget · Windows x64" Margin="0,18,0,10"/>
           <TextBlock x:Name="UpdateStatus" Text="Нажмите «Проверить обновления»." Margin="0,0,0,12"/>
-          <TextBox x:Name="UpdateNotes" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="210" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+          <TextBlock x:Name="UpdateNotes" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="190" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,6"/>
+          <TextBlock Margin="0,0,0,12" FontSize="12"><Hyperlink NavigateUri="https://github.com/kuzmin-lemmi/MenuWidget/releases/latest" RequestNavigate="ReleasePage_Navigate">Полное описание на GitHub</Hyperlink></TextBlock>
           <ProgressBar x:Name="UpdateProgress" Height="6" Maximum="100" Margin="0,0,0,12"/>
           <Button Content="Проверить обновления" Click="CheckAgain_Click" Margin="0,0,0,8"/>
           <Button x:Name="InstallUpdate" Content="Установить новую версию" Click="InstallUpdate_Click" IsEnabled="False" Background="{StaticResource Green}" Foreground="White"/>
@@ -83,10 +97,10 @@
           <TextBlock Text="Во время установки программа закроется и откроется снова. Настройки и шаблоны сохранятся." Margin="0,16,0,0" Foreground="{StaticResource Muted}"/>
         </StackPanel>
       </StackPanel>
-    </ScrollViewer>
+    </Viewbox>
     <StackPanel Grid.Row="2" Margin="0,15,0,0">
       <Border Height="1" Background="#DEE4DC" Margin="0,0,0,10"/>
-      <DockPanel><TextBlock x:Name="VersionText" Text="MenuWidget · 0.2.0" FontSize="11" Foreground="{StaticResource Muted}"/><ComboBox x:Name="ScenePicker" Width="156" FontSize="11" HorizontalAlignment="Right" SelectionChanged="Scene_Changed" ToolTip="Демонстрационные состояния макета"><ComboBoxItem Content="Первый запуск" Tag="welcome"/><ComboBoxItem Content="Нет файлов" Tag="empty"/><ComboBoxItem Content="Часть файлов" Tag="partial"/><ComboBoxItem Content="Комплект готов" Tag="ready"/><ComboBoxItem Content="Ошибка" Tag="error"/><ComboBoxItem Content="Настройки" Tag="settings"/><ComboBoxItem Content="Обновления" Tag="updates"/></ComboBox></DockPanel>
+      <DockPanel><TextBlock x:Name="VersionText" Text="MenuWidget · 0.2.0" FontSize="11" Foreground="{StaticResource Muted}"/><ComboBox x:Name="ScenePicker" Width="156" FontSize="11" HorizontalAlignment="Right" SelectionChanged="Scene_Changed" ToolTip="Демонстрационные состояния макета"><ComboBoxItem Content="Первый запуск" Tag="welcome"/><ComboBoxItem Content="Нет файлов" Tag="empty"/><ComboBoxItem Content="Часть файлов" Tag="partial"/><ComboBoxItem Content="Комплект готов" Tag="ready"/><ComboBoxItem Content="Ошибка" Tag="error"/><ComboBoxItem Content="Настройки" Tag="settings"/><ComboBoxItem Content="Настройки виджета" Tag="settings-widget"/><ComboBoxItem Content="Обновления" Tag="updates"/></ComboBox></DockPanel>
     </StackPanel>
   </Grid>
   </Border>

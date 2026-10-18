@@ -49,7 +49,8 @@ public partial class App : Application
             if (e.Args.Contains("--background") && !settings.AutoStart) { Shutdown(); return; }
             if (e.Args.Contains("--check-reminder") && !ReminderRules.IsDue(DateTimeOffset.Now, new(settings.ReminderEnabled, settings.ReminderTime, TimeSpan.FromMinutes(30)), data.ReadReminderState())) { Shutdown(); return; }
             Runtime = new DesktopRuntime(this, e.Args.Contains("--check-reminder"));
-            instance.Listen("open", () => Dispatcher.BeginInvoke(() => Runtime.ShowMain()));
+            // Shortcut while running: first show a hidden widget, a second launch opens the program window.
+            instance.Listen("open", () => Dispatcher.BeginInvoke(() => { if (Runtime.WidgetVisible) Runtime.ShowMain(); else Runtime.ShowWidget(force: true); }));
             instance.Listen("check", () => Dispatcher.BeginInvoke(() => Runtime.CheckReminders()));
             instance.Listen("exit", () => Dispatcher.BeginInvoke(() => Runtime.RequestExit()));
             try { await Runtime.RestoreIntegrationsAsync(); }
@@ -58,8 +59,9 @@ public partial class App : Application
                 if (!silent) MessageBox.Show("Не удалось восстановить автозапуск или расписание: " + integrationError.Message + "\nПроверьте настройки программы.", "MenuWidget");
             }
             // The widget is the everyday face of the program; the full window opens on first run or when the widget is hidden.
-            if (!e.Args.Contains("--check-reminder")) Runtime.ShowWidget();
-            if (!silent && (settings.FirstWeekMonday is null || !Runtime.WidgetVisible)) Runtime.ShowMain();
+            // Launching from the shortcut always brings the widget back, even after ✕; autostart respects the hidden choice.
+            if (!e.Args.Contains("--check-reminder")) Runtime.ShowWidget(force: !silent);
+            if (!silent && settings.FirstWeekMonday is null) Runtime.ShowMain();
             Runtime.CheckReminders();
         }
         catch (Exception ex)
@@ -80,7 +82,7 @@ public partial class App : Application
         if (args.Length == 2 && args[0] == "--capture")
         {
             var output = Path.GetFullPath(args[1]); Directory.CreateDirectory(output);
-            foreach (var scene in new[] { "welcome", "empty", "partial", "ready", "error", "settings", "updates" })
+            foreach (var scene in new[] { "welcome", "empty", "partial", "ready", "error", "settings", "settings-widget", "updates" })
             {
                 window.SetScene(scene); await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle); window.UpdateLayout();
                 Capture((FrameworkElement)window.Content, window.ActualWidth, window.ActualHeight, Path.Combine(output, scene + ".png"));

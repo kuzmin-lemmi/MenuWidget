@@ -21,7 +21,7 @@ internal sealed class ImportWindow : Window
     private readonly List<ImportItem> items;
     private readonly MenuSetId set;
     private readonly XlsxDateEditor editor;
-    private readonly StackPanel rows = new();
+    private readonly StackPanel rows = new() { Width = 620 };
     private readonly TextBlock error = new() { Foreground = Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, Margin = new(0, 10, 0, 10) };
     private readonly string[] days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница"];
     public MenuSet Result => new(set, items.Select((item, i) => new MenuTemplate((DayOfWeek)(i + 1), item.Path, System.IO.Path.GetFileName(item.Path), new(item.Sheet, item.Address.Trim().ToUpperInvariant()))).ToArray());
@@ -29,7 +29,7 @@ internal sealed class ImportWindow : Window
     public ImportWindow(IEnumerable<ImportItem> items, MenuSetId set, XlsxDateEditor editor)
     {
         this.items = items.ToList(); this.set = set; this.editor = editor;
-        Title = "Проверьте пять меню"; Width = 710; Height = 760; MinWidth = 610; MinHeight = 600;
+        Title = "Проверьте пять меню"; Width = 710; Height = Math.Min(760, SystemParameters.WorkArea.Height - 20); MinWidth = 610; MinHeight = 480;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         FontFamily = new FontFamily("Segoe UI"); FontSize = 13; Background = new SolidColorBrush(Color.FromRgb(245, 245, 239));
         var root = new DockPanel { Margin = new(22) };
@@ -48,7 +48,8 @@ internal sealed class ImportWindow : Window
         };
         buttons.Children.Add(cancel); buttons.Children.Add(save); bottom.Children.Add(buttons);
         DockPanel.SetDock(bottom, Dock.Bottom); root.Children.Add(bottom);
-        root.Children.Add(new ScrollViewer { Content = rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }); Content = root;
+        // No scrolling: on a short screen the five rows scale down together.
+        root.Children.Add(new Viewbox { Child = rows, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, VerticalAlignment = VerticalAlignment.Top }); Content = root;
         Rebuild();
     }
 
@@ -83,7 +84,7 @@ internal sealed class ImportWindow : Window
             }
             sheet.SelectionChanged += (_, _) => Validate(); address.TextChanged += (_, _) => Validate();
             fields.Children.Add(sheet); fields.Children.Add(address); fields.Children.Add(date); body.Children.Add(fields); Validate();
-            rows.Children.Add(new Border { Background = Brushes.White, CornerRadius = new(10), Padding = new(12), Margin = new(0, 0, 0, 10), Child = body });
+            rows.Children.Add(new Border { Background = Brushes.White, CornerRadius = new(10), Padding = new(12, 9, 12, 9), Margin = new(0, 0, 0, 8), Child = body });
         }
     }
 }
