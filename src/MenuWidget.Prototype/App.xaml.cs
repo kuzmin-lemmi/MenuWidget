@@ -59,8 +59,9 @@ public partial class App : Application
                 if (!silent) MessageBox.Show("Не удалось восстановить автозапуск или расписание: " + integrationError.Message + "\nПроверьте настройки программы.", "MenuWidget");
             }
             // The widget is the everyday face of the program; the full window opens on first run or when the widget is hidden.
-            // Launching from the shortcut always brings the widget back, even after ✕; autostart respects the hidden choice.
-            if (!e.Args.Contains("--check-reminder")) Runtime.ShowWidget(force: !silent);
+            // The widget appears on every start, including autostart at Windows logon; ✕ hides it only until the next start.
+            // A reminder-only launch (scheduler) stays quiet.
+            if (!e.Args.Contains("--check-reminder")) Runtime.ShowWidget(force: true);
             if (!silent && settings.FirstWeekMonday is null) Runtime.ShowMain();
             Runtime.CheckReminders();
         }

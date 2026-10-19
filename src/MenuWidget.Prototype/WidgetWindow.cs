@@ -137,7 +137,7 @@ internal sealed class WidgetWindow : Window
         grid.Children.Add(line);
         var tools = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         tools.Children.Add(Tool("⚙", "Открыть программу", openMain));
-        if (hide is not null) tools.Children.Add(Tool("✕", "Скрыть виджет · вернуть можно из значка в трее", hide));
+        if (hide is not null) tools.Children.Add(Tool("✕", "Скрыть до следующего запуска · вернуть: значок у часов → «Показать виджет»", hide));
         Grid.SetColumn(tools, 1); grid.Children.Add(tools);
         return grid;
     }
